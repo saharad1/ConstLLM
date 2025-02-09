@@ -1,0 +1,6 @@
+# Ignore those directories
+archive/
+outputs_present/
+notebooks/
+wandb/
+datasets/
