@@ -1,10 +1,13 @@
-from typing import List, Dict
 import string
+from typing import Dict, List
+
 import nltk
+
 from utils.ModelTokenizerBundle import ModelTokenizerBundle
 
+
 def get_skip_tokens(
-    tokenizer, extra_skip_tokens: list = None, only_skip_structure: bool = False
+    tokenizer, extra_skip_tokens: list = None, only_skip_structure: bool = True
 ) -> dict:
     """
     Identifies stop words and punctuation tokens in the tokenizer's vocabulary.

@@ -4,3 +4,4 @@ outputs_present/
 notebooks/
 wandb/
 datasets/
+__pycache__/

@@ -1,12 +1,13 @@
 import sys
 import time
 
-from llm_attribution.LLMAnalyzer import LLMAnalyzer
-from llm_attribution.utils_attribution import AttributionMethod
-from prepare_datasets.prepare_codah import PreparedCODAHDataset
 from datasets import load_dataset
 from tqdm import tqdm
 
+from llm_attribution.LLMAnalyzer import LLMAnalyzer
+from llm_attribution.utils_attribution import AttributionMethod
+from pipeline_dpo.comp_score import compute_kl_divergence, compute_spearman_score
+from prepare_datasets.prepare_codah import PreparedCODAHDataset
 from utils.cutom_chat_template import custom_apply_chat_template
 from utils.data_models import ScenarioResult
 
@@ -18,14 +19,14 @@ llm_analyzer = LLMAnalyzer(model_id="meta-llama/Meta-Llama-3.1-8B-Instruct")
 
 methods_params_decision = {
     AttributionMethod.LIME.name: {
-        "n_samples": 100,
-        "perturbations_per_eval": 100,
+        "n_samples": 20,
+        "perturbations_per_eval": 20,
     }
 }
 methods_params_explanation = {
     AttributionMethod.LIME.name: {
-        "n_samples": 100,
-        "perturbations_per_eval": 100,
+        "n_samples": 20,
+        "perturbations_per_eval": 20,
     }
 }
 
@@ -96,3 +97,23 @@ for idx, scenario_item in tqdm(
         explanation_scores=explanation_result.methods_scores,
     )
     scenario_result.print_results()
+
+    decisions_attributions = scenario_result.decision_scores[
+        AttributionMethod.LIME.name
+    ]
+    explanations_attributions = scenario_result.explanation_scores[
+        AttributionMethod.LIME.name
+    ]
+
+    spearman_score = compute_spearman_score(
+        decision_attributions=decisions_attributions,
+        explanation_attributions=explanations_attributions,
+    )
+
+    # kl_divergance_score = compute_kl_divergence(
+    #     decision_attributions=decisions_attributions,
+    #     explanation_attributions=explanations_attributions,
+    # )
+
+    print(f"\nSpearman Score: {spearman_score}")
+    # print(f"KL Divergance Score: {kl_divergance_score}")

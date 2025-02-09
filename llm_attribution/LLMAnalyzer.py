@@ -1,24 +1,24 @@
 import sys
 import traceback
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from captum.attr import (
-    TextTokenInput,
-    Lime,
-    ShapleyValueSampling,
     LayerIntegratedGradients,
+    Lime,
     LLMGradientAttribution,
+    ShapleyValueSampling,
+    TextTokenInput,
 )
-from typing import Dict, Optional, Any, List, Tuple, Union
 from captum.attr._core.llm_attr import LLMAttributionResult
 
-from llm_attribution.TextTokenInputMod import TextTokenInputMod
 from llm_attribution.LLMAttributionMod import ExtendedLLMAttribution
-from utils.ModelTokenizerBundle import ModelTokenizerBundle
+from llm_attribution.TextTokenInputMod import TextTokenInputMod
 from llm_attribution.utils_attribution import AttributionMethod
 from utils.cutom_chat_template import custom_apply_chat_template
-from utils.get_skip_tokens import get_skip_tokens
 from utils.data_models import LLMAnalysisRes
+from utils.get_skip_tokens import get_skip_tokens
+from utils.ModelTokenizerBundle import ModelTokenizerBundle
 
 
 class LLMAnalyzer:
@@ -27,7 +27,7 @@ class LLMAnalyzer:
         model_id: str,
         device: str = "cuda:0",
         extra_skip_tokens: list[str] = None,
-        only_structure_tokens: bool = False,
+        only_structure_tokens: bool = True,
     ):
         # Load the tokenizer and model directly
         use_quantization = True
@@ -54,7 +54,8 @@ class LLMAnalyzer:
             except AttributeError:
                 raise AttributeError("Cannot find the embedding layer in the model.")
 
-    def _get_seq_attr_list(self,
+    def _get_seq_attr_list(
+        self,
         attribution_result: LLMAttributionResult,
     ) -> List[Tuple[str, float]]:
         """
@@ -250,7 +251,8 @@ class LLMAnalyzer:
                 continue
 
         methods_scores = {
-            method: self._get_seq_attr_list(result) for method, result in results.items()
+            method: self._get_seq_attr_list(result)
+            for method, result in results.items()
         }
 
         analysis_results = LLMAnalysisRes(
