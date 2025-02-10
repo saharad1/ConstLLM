@@ -1,4 +1,5 @@
-from typing import Union, List
+from typing import List, Union
+
 import torch
 from captum.attr import TextTokenInput
 

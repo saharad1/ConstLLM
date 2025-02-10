@@ -9,6 +9,7 @@ class ScenarioItem:
     scenario_id: int
     scenario_string: str
     user_prompts: List[str]
+    explanation_string: str
     label: str
 
 

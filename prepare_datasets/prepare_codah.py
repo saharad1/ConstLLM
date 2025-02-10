@@ -1,14 +1,17 @@
 from collections import namedtuple
 from typing import Union
 
-from datasets import load_dataset, Dataset
+from datasets import Dataset, load_dataset
 from torch.utils.data import Dataset
 
 # ScenarioItem = namedtuple('ScenarioItem', ['user_prompts', 'label'])
 from utils.data_models import ScenarioItem
 
+
 class PreparedCODAHDataset(Dataset):
-    def __init__(self, original_dataset, mode: str = "exp1", subset: Union[int, slice] = None):
+    def __init__(
+        self, original_dataset, mode: str = "exp1", subset: Union[int, slice] = None
+    ):
         """
         Initialize the dataset with a specific mode.
 
@@ -19,7 +22,7 @@ class PreparedCODAHDataset(Dataset):
         """
         self.original_dataset = original_dataset
         self.mode = mode.lower()
-        self.target_tokens: list = ['A', 'B', 'C', 'D']
+        self.target_tokens: list = ["A", "B", "C", "D"]
 
         # Subset selection
         if subset is not None:
@@ -40,12 +43,15 @@ class PreparedCODAHDataset(Dataset):
     def get_exp1_static_texts(self):
         """Return static texts for decision and explanation phases."""
         static_texts_decision = [self.instruction_decision, self.instruction_decision_2]
-        static_texts_explanation = [self.instruction_decision, self.instruction_decision_2, self.instruction_explain]
+        static_texts_explanation = [
+            self.instruction_decision,
+            self.instruction_decision_2,
+            self.instruction_explain,
+        ]
         return static_texts_decision, static_texts_explanation
 
     def get_exp2_static_texts(self):
         return [self.instruction_decision, self.instruction_decision_2]
-
 
     def __len__(self):
         return len(self.original_dataset)
@@ -71,42 +77,49 @@ class PreparedCODAHDataset(Dataset):
 
     def _prepare_exp1_item(self, example, idx):
         """Prepare an item for Experiment 1 (Exp1)."""
-        question = example['question_propmt']
-        options = example['candidate_answers']
+        question = example["question_propmt"]
+        options = example["candidate_answers"]
 
         # Generate the decision prompt
         prompt = f"{question}\n"
         prompt += self.instruction_decision
-        prompt += "\n".join(f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options))
+        prompt += "\n".join(
+            f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options)
+        )
         prompt += "\n" + self.instruction_decision_2
 
         # Get the correct answer
-        label = example['correct_answer_idx']
+        label = example["correct_answer_idx"]
         label_letter = self.target_tokens[label]
 
         # Create ScenarioItem
-        user_prompts = [self.instruction_decision + self.instruction_decision_2, self.instruction_explain]
+        user_prompts = [
+            self.instruction_decision + self.instruction_decision_2,
+            self.instruction_explain,
+        ]
         return ScenarioItem(
             scenario_id=idx,
             scenario_string=prompt,
+            explanation_string=self.instruction_explain,
             user_prompts=user_prompts,
-            label=label_letter
+            label=label_letter,
         )
 
     def _prepare_exp2_item(self, example, idx):
         """Prepare an item for Experiment 2 (Exp2)."""
-        question = example['question_propmt']
-        options = example['candidate_answers']
+        question = example["question_propmt"]
+        options = example["candidate_answers"]
 
         # Generate the decision prompt
         prompt = f"{self.instruction_decision}"
         prompt += f"{self.instruction_decision_2}"
         prompt += f"{question}\n"
-        prompt += "\n".join(f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options))
-
+        prompt += "\n".join(
+            f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options)
+        )
 
         # Get the correct answer
-        label = example['correct_answer_idx']
+        label = example["correct_answer_idx"]
         label_letter = self.target_tokens[label]
 
         # Create ScenarioItem
@@ -114,22 +127,22 @@ class PreparedCODAHDataset(Dataset):
         return ScenarioItem(
             scenario_id=idx,
             scenario_string=prompt,
+            explanation_string=self.instruction_explain,
             user_prompts=user_prompts,
-            label=label_letter
+            label=label_letter,
         )
+
 
 def show_codah_data():
     # Load the CODAH dataset
-    codah_dataset: Dataset = load_dataset(path="jaredfern/codah",
-                                          name="codah",
-                                          split="all",
-                                          cache_dir="../datasets"
-                                          )
+    codah_dataset: Dataset = load_dataset(
+        path="jaredfern/codah", name="codah", split="all", cache_dir="../datasets"
+    )
 
     print(f"Number of scenarios: {len(codah_dataset)}")
 
     # Prepare scenarios from the dataset
-    prepared_codah_dataset= PreparedCODAHDataset(codah_dataset, mode= "exp2",subset=5)
+    prepared_codah_dataset = PreparedCODAHDataset(codah_dataset, mode="exp2", subset=5)
     print(f"Number of scenarios: {len(prepared_codah_dataset)}")
 
     for idx, scenario_item in enumerate(prepared_codah_dataset, 1):
