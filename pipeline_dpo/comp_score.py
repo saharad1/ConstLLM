@@ -79,7 +79,7 @@ import numpy as np
 from scipy.stats import entropy
 
 
-def compute_kl_divergence(
+def _calculate_kl_divergence(
     decision_attributions: List[Tuple[str, float]],
     explanation_attributions: List[Tuple[str, float]],
 ):

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from captum.attr._core.llm_attr import LLMAttributionResult
 
 
@@ -10,12 +11,14 @@ class ScenarioItem:
     user_prompts: List[str]
     label: str
 
+
 @dataclass
-class ScenarioResult:
+class ScenarioSummary:
     """
     Represents the result of a scenario, including decision and explanation phases.
     Easily extendable with additional fields for specific datasets.
     """
+
     scenario_id: int  # Unique scenario ID
     correct_label: str  # Ground truth label
     decision_prompt: str  # Prompt input for the decision phase
@@ -23,8 +26,12 @@ class ScenarioResult:
     decision_scores: Dict[str, float]  # Scores for each method in the decision phase
     explanation_prompt: str  # Details of the explanation phase
     explanation_output: str  # Prompt input for the explanation phase
-    explanation_scores: Dict[str, float]  # Scores for each method in the explanation phase
-    extra_info: Dict[str, Any] = field(default_factory=dict)  # Flexible field for extra dataset-specific information
+    explanation_scores: Dict[
+        str, float
+    ]  # Scores for each method in the explanation phase
+    extra_info: Dict[str, Any] = field(
+        default_factory=dict
+    )  # Flexible field for extra dataset-specific information
 
     # def to_dict(self) -> Dict[str, Any]:
     #     """
@@ -68,13 +75,46 @@ class ScenarioResult:
             print("\n--- EXTRA INFORMATION ---")
             for key, value in self.extra_info.items():
                 print(f"{key}: {value}")
-                
+
+
+@dataclass
+class ScenarioResult:
+    """
+    Represents the result of a scenario, including decision and explanation phases.
+    Easily extendable with additional fields for specific datasets.
+    """
+
+    scenario_id: int  # Unique scenario ID
+    correct_label: str  # Ground truth label
+    decision_prompt: str  # Prompt input for the decision phase
+    decision_output: str  # Details of the decision phase
+    explanation_prompt: str  # Details of the explanation phase
+    explanation_best_output: str  # Prompt input for the explanation phase
+    explanation_best_score: float  # Score for the best method in the explanation phase
+    explanation_worst_output: str  # Prompt input for the explanation phase
+    explanation_worst_score: str  # Prompt input for the explanation phase
+
+    def to_dict(self):
+        return {
+            "scenario_id": self.scenario_id,
+            "correct_label": self.correct_label,
+            "decision_prompt": self.decision_prompt,
+            "decision_output": self.decision_output,
+            "explanation_prompt": self.explanation_prompt,
+            "explanation_best_output": self.explanation_best_output,
+            "explanation_best_score": self.explanation_best_score,
+            "explanation_worst_output": self.explanation_worst_output,
+            "explanation_worst_score": self.explanation_worst_score,
+        }
+
+
 @dataclass
 class LLMAnalysisRes:
     """
     Represents the result of a scenario, including decision and explanation phases.
     Easily extendable with additional fields for specific datasets.
     """
-    input_text : str
-    target : str
-    methods_scores : Dict[str,Any]
+
+    input_text: str
+    target: str
+    methods_scores: Dict[str, Any]
