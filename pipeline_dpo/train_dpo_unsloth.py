@@ -1,5 +1,7 @@
 import os
 import sys
+from datetime import datetime
+from pathlib import Path
 
 import torch
 from datasets import load_dataset
@@ -8,6 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel
 
+import wandb
 from pipeline_dpo.dpo_dataset_codah import load_dpo_dataset
 from utils.general import print_memory_usage_all_gpus
 
@@ -15,8 +18,6 @@ from utils.general import print_memory_usage_all_gpus
 print(f"Available GPUs: {torch.cuda.device_count()}")
 for i in range(torch.cuda.device_count()):
     print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
-
-sys.exit()
 
 # Define model name
 model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
@@ -63,11 +64,24 @@ train_dataset = load_dpo_dataset(dataset_path, include_scores=False)
 print(f"Number of samples: {len(train_dataset)}")
 print(train_dataset.column_names)
 
+# Generate a timestamped run name
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+run_name = f"Exp-{timestamp}-LLama"
+print(f"Run name: {run_name}")
+
+output_dir = (
+    Path("trained_models")
+    / "codah_models"
+    / "LLama-instruct-8b-unsloth-tuned"
+    / run_name
+)
+
+wandb.init(project="codah-dpo", name=run_name)
 
 # DPO Training Config
 training_args = DPOConfig(
-    output_dir="LLama-Tuned",
-    run_name="LLama-DPO-Experiment",
+    output_dir=output_dir,
+    run_name=run_name,
     report_to="wandb",
     per_device_train_batch_size=1,  # Adjust based on available GPU memory
     gradient_accumulation_steps=4,  # Simulates a larger batch size
@@ -86,7 +100,7 @@ training_args = DPOConfig(
 # Initialize DPO Trainer
 trainer = DPOTrainer(
     model=model,  # Fine-tuned model
-    ref_model=None,  # 🚀 FIXED! No ref_model for LoRA
+    ref_model=None,  # No ref_model for LoRA
     args=training_args,
     train_dataset=train_dataset,
     processing_class=tokenizer,
@@ -99,5 +113,6 @@ trainer.train()
 print("✅ Training completed.")
 
 # Save the model
-trainer.save_model("LLama-Tuned-model")
-print("✅ Model saved to Qwen2-0.5B-DPO")
+save_path = output_dir / "final-model"
+trainer.save_model(str(save_path))
+print(f"✅ Model saved to {save_path}")
