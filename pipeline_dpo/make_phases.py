@@ -37,13 +37,13 @@ methods_params_explanation = {
 }
 
 # Define output file
-jsonl_filename = "results/codah_res/codah_results.jsonl"
+jsonl_filename = "results/codah_res/codah_results2.jsonl"
 NUM_DEC_EXP = 5
 
 with open(jsonl_filename, "a") as f:
     for idx, scenario_item in tqdm(
-        enumerate(prepared_dataset, 1),
-        total=len(prepared_dataset),
+        enumerate(prepared_dataset),
+        total=len(prepared_dataset) - 1,
         desc="Processing Scenarios",
     ):
         print(f"\n=== Running Scenario {idx} ===")

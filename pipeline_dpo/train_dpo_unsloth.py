@@ -6,54 +6,46 @@ from datasets import load_dataset
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import DPOConfig, DPOTrainer
+from unsloth import FastLanguageModel
 
 from pipeline_dpo.dpo_dataset_codah import load_dpo_dataset
+from utils.general import print_memory_usage_all_gpus
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 print(f"Available GPUs: {torch.cuda.device_count()}")
 for i in range(torch.cuda.device_count()):
     print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
 
-
-def print_memory_usage_all_gpus(message=""):
-    """Prints the GPU memory usage for all available GPUs in MB"""
-    print(f"\n{message}")
-    for i in range(torch.cuda.device_count()):
-        torch.cuda.set_device(i)  # Switch to GPU i
-        allocated = torch.cuda.memory_allocated(i) / 1024**2  # Convert bytes to MB
-        reserved = torch.cuda.memory_reserved(i) / 1024**2  # Convert bytes to MB
-        print(f"GPU {i}: Allocated: {allocated:.2f} MB | Reserved: {reserved:.2f} MB")
-
+sys.exit()
 
 # Define model name
 model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 # Load tokenizer
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+# tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-# 4-bit Quantization Config
-# bnb_config = BitsAndBytesConfig(
-#     load_in_4bit=True,  # Use 4-bit quantization
-#     bnb_4bit_compute_dtype=torch.float16,  # Reduce precision
-#     bnb_4bit_use_double_quant=True,  # Nested quantization
-#     bnb_4bit_quant_type="nf4",  # Normalized float4
+# Load base model
+# model = AutoModelForCausalLM.from_pretrained(
+#     model_name,
+#     # quantization_config=bnb_config,  # Apply BitsAndBytes quantization
+#     torch_dtype=torch.bfloat16,  # Use FP16 for model weights
+#     device_map="auto",
 # )
 
-# 8-bit Quantization Config
-# bnb_config = BitsAndBytesConfig(
-#     load_in_8bit=True,  # Enable 8-bit quantization
-#     llm_int8_has_fp16_weight=False,  # Disable FP16 weight quantization
-# )
-
-# Load base model with quantization
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    # quantization_config=bnb_config,  # Apply BitsAndBytes quantization
-    torch_dtype=torch.bfloat16,  # Use FP16 for model weights
-    device_map="auto",
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name=model_name,
+    dtype=torch.bfloat16,
+)
+model = FastLanguageModel.get_peft_model(
+    model=model,
+    r=16,
+    lora_alpha=32,
+    lora_dropout=0.05,
+    use_gradient_checkpointing="unsloth",
 )
 
-model.gradient_checkpointing_enable()
+
+# model.gradient_checkpointing_enable()
 
 model_device = next(model.parameters()).device
 print(f"Model loaded on device: {model_device}")
@@ -66,37 +58,11 @@ if tokenizer.pad_token is None:
     model.config.pad_token_id = tokenizer.pad_token_id
 
 
-# LoRA Configuration
-lora_config = LoraConfig(
-    r=16,  # LoRA rank
-    lora_alpha=32,  # Scaling factor
-    lora_dropout=0.05,  # Dropout to prevent overfitting
-)
-
-# Apply LoRA to the base model
-model = get_peft_model(model, lora_config)
-
-
-# Load dataset
-train_dataset = load_dataset("trl-lib/ultrafeedback_binarized", split="train")
-
-# train_dataset = train_dataset.select(range(10))
-# print(train_dataset[0])  # Check the first sample
-print(train_dataset.column_names)
-
-
 dataset_path = "results/codah_res/codah_results2.jsonl"
 train_dataset = load_dpo_dataset(dataset_path, include_scores=False)
 print(f"Number of samples: {len(train_dataset)}")
 print(train_dataset.column_names)
-print(train_dataset[0])  # Check the first sample
 
-# Ensure correct dataset columns for DPO
-# dataset = dataset.rename_columns({
-#     "question": "prompt",  # 🚀 FIXED!
-#     "better_response": "chosen",
-#     "worse_response": "rejected"
-# })
 
 # DPO Training Config
 training_args = DPOConfig(
@@ -110,6 +76,8 @@ training_args = DPOConfig(
     logging_steps=3,
     save_strategy="epoch",
     beta=0.1,  # Controls DPO optimization strength!
+    # bf16=True, # Enable bfloat16 training only when using A100 GPUs
+    fp16=True,  # Enable FP16 training only when not using A100 GPUs
     # Evaluation Config
     # eval_strategy="steps",
     # eval_steps=500,
@@ -122,7 +90,7 @@ trainer = DPOTrainer(
     args=training_args,
     train_dataset=train_dataset,
     processing_class=tokenizer,
-    peft_config=lora_config,  # Use PEFT
+    # peft_config=lora_config,  # Use PEFT
 )
 
 # Start training

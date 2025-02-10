@@ -5,4 +5,5 @@ notebooks/
 wandb/
 datasets/
 results/
+trained_models/
 __pycache__/

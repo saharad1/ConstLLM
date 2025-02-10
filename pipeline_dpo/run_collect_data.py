@@ -36,7 +36,7 @@ def prepare_methods_params(n_samples=20, perturbations_per_eval=20):
 def load_and_prepare_dataset():
     logger.info("Loading and preparing the dataset...")
     raw_dataset = load_dataset(path="jaredfern/codah", name="codah", split="all")
-    prepared_dataset = PreparedCODAHDataset(raw_dataset, mode="exp1", subset=5)
+    prepared_dataset = PreparedCODAHDataset(raw_dataset, mode="exp1", subset=20)
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
     return prepared_dataset
 
@@ -144,7 +144,7 @@ def process_scenario(
 
 # Main function
 def run_collect_d():
-    ensure_output_directory("results/codah_res")
+    ensure_output_directory("results/codah_res3")
     prepared_dataset = load_and_prepare_dataset()
     llm_analyzer = initialize_llm_analyzer()
 
@@ -156,7 +156,7 @@ def run_collect_d():
         n_samples=20, perturbations_per_eval=20
     )
 
-    jsonl_filename = "results/codah_res/codah_results.jsonl"
+    jsonl_filename = "results/codah_res/codah_results2.jsonl"
     num_dec_exp = 5
 
     with open(jsonl_filename, "a") as f:
