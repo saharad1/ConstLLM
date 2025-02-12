@@ -4,17 +4,19 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
-from datasets import load_dataset
-from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+# from peft import LoraConfig, get_peft_model
+# from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel
 
 import wandb
+
+# from datasets import load_dataset
 from pipeline_dpo.dpo_dataset_codah import load_dpo_dataset
 from utils.general import print_memory_usage_all_gpus
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 print(f"Available GPUs: {torch.cuda.device_count()}")
 for i in range(torch.cuda.device_count()):
     print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
@@ -22,6 +24,7 @@ for i in range(torch.cuda.device_count()):
 # Define model name
 model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
+sys.exit()
 # Load tokenizer
 # tokenizer = AutoTokenizer.from_pretrained(model_name)
 

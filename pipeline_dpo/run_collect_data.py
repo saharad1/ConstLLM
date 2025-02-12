@@ -2,16 +2,21 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
+from pathlib import Path
 
-from datasets import load_dataset
 from tqdm import tqdm
 
+import wandb
+from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
 from pipeline_dpo.comp_score import compute_kl_divergence, compute_spearman_score
 from prepare_datasets.prepare_codah import PreparedCODAHDataset
 from utils.cutom_chat_template import custom_apply_chat_template
 from utils.data_models import ScenarioResult, ScenarioSummary
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -33,10 +38,10 @@ def prepare_methods_params(n_samples=20, perturbations_per_eval=20):
 
 
 # Dataset preparation
-def load_and_prepare_dataset():
+def load_and_prepare_dataset(subset=20):
     logger.info("Loading and preparing the dataset...")
     raw_dataset = load_dataset(path="jaredfern/codah", name="codah", split="all")
-    prepared_dataset = PreparedCODAHDataset(raw_dataset, mode="exp1", subset=20)
+    prepared_dataset = PreparedCODAHDataset(raw_dataset, mode="exp1", subset=subset)
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
     return prepared_dataset
 
@@ -44,9 +49,7 @@ def load_and_prepare_dataset():
 # LLM analyzer initialization
 def initialize_llm_analyzer():
     logger.info("Initializing LLM analyzer...")
-    return LLMAnalyzer(
-        model_id="meta-llama/Meta-Llama-3.1-8B-Instruct", device="cuda:1"
-    )
+    return LLMAnalyzer(model_id="meta-llama/Meta-Llama-3.1-8B-Instruct", device="cuda")
 
 
 # Generalized phase function
@@ -144,40 +147,68 @@ def process_scenario(
 
 # Main function
 def run_collect_d():
-    ensure_output_directory("results/codah_res3")
-    prepared_dataset = load_and_prepare_dataset()
+    prepared_dataset = load_and_prepare_dataset(subset=None)
     llm_analyzer = initialize_llm_analyzer()
 
     # Prepare attribution method parameters
     methods_params_decision = prepare_methods_params(
-        n_samples=20, perturbations_per_eval=20
+        n_samples=500, perturbations_per_eval=500
     )
     methods_params_explanation = prepare_methods_params(
-        n_samples=20, perturbations_per_eval=20
+        n_samples=500, perturbations_per_eval=500
     )
 
-    jsonl_filename = "results/codah_res/codah_results2.jsonl"
+    # Generate a timestamped run name
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_name = f"codah-{timestamp}-LLama"
+    jsonl_filename = Path("dpo_datasets") / "codah_dpo_datasets" / run_name
+
+    # Ensure directories exist
+    jsonl_filename.parent.mkdir(parents=True, exist_ok=True)
+
     num_dec_exp = 5
 
+    # Initialize wandb
+    wandb.init(project="codah-dataset-dpo", name=run_name)
+
     with open(jsonl_filename, "a") as f:
-        for idx, scenario_item in tqdm(
+        for iteration, scenario_item in tqdm(
             enumerate(prepared_dataset, 1),
             total=len(prepared_dataset),
             desc="Processing Scenarios",
         ):
+            start_time = time.time()  # Start timing
+
             try:
-                logger.info(f"\n=== Running Scenario {idx} ===")
+                logger.info(f"\n=== Running Scenario {iteration} ===")
                 scenario_res = process_scenario(
                     llm_analyzer=llm_analyzer,
                     scenario_item=scenario_item,
                     methods_params_decision=methods_params_decision,
                     methods_params_explanation=methods_params_explanation,
-                    num_dec_exp=num_dec_exp,
+                    num_dec_exp=num_dec_exp,  # Number of decision-explanation repetitions
                 )
                 f.write(json.dumps(scenario_res.to_dict()) + "\n")
             except ValueError as e:
-                logger.error(f"Error processing scenario {idx}: {e}")
+                logger.error(f"Error processing scenario {iteration}: {e}")
                 continue
+
+            # Compute iteration time
+            iteration_time = time.time() - start_time  # End timing
+
+            # Log key results and iteration time for tracking progress in wandb
+            wandb.log(
+                {
+                    "iteration": iteration,
+                    "scenario_id": scenario_res.scenario_id,
+                    "best_spearman_score": scenario_res.explanation_best_score,
+                    "worst_spearman_score": scenario_res.explanation_worst_score,
+                    # "decision_output": scenario_res.decision_output,
+                    # "best_explanation_output": scenario_res.explanation_best_output,
+                    # "worst_explanation_output": scenario_res.explanation_worst_output,
+                    "iteration_time_seconds": iteration_time,  # Log the time taken per scenario
+                }
+            )
 
 
 if __name__ == "__main__":

@@ -1,12 +1,13 @@
-from typing import cast, Optional
+from typing import Optional, cast
+
 import torch
 from torch.nn import DataParallel
 from transformers import (
-    AutoTokenizer,
     AutoModelForCausalLM,
+    AutoTokenizer,
     BitsAndBytesConfig,
-    PreTrainedTokenizer,
     PreTrainedModel,
+    PreTrainedTokenizer,
 )
 
 
@@ -26,12 +27,13 @@ class ModelTokenizerBundle:
         use_quantization (bool): Whether to use 4-bit quantization for the model.
     """
 
-    def __init__(self,
-                 model_id: str,
-                 device="cuda:0",
-                 use_quantization: bool = True,
-                 quantization_type: Optional[str] = "4bit",
-                 ):
+    def __init__(
+        self,
+        model_id: str,
+        device="cuda",
+        use_quantization: bool = True,
+        quantization_type: Optional[str] = "4bit",
+    ):
         """
         Initialize the ModelTokenizerBundle with a specified model ID and quantization option.
 
@@ -73,10 +75,14 @@ class ModelTokenizerBundle:
                     bnb_8bit_compute_dtype=torch.bfloat16,
                 )
             else:
-                raise ValueError(f"Unsupported quantization type: {self.quantization_type}")
+                raise ValueError(
+                    f"Unsupported quantization type: {self.quantization_type}"
+                )
             model_kwargs["quantization_config"] = quantization_config
         else:
-            model_kwargs["torch_dtype"] = torch.float16  # Use full precision (or float16 if preferred)
+            model_kwargs["torch_dtype"] = (
+                torch.float16
+            )  # Use full precision (or float16 if preferred)
 
         # if self.use_quantization:
         #     quantization_config: BitsAndBytesConfig = BitsAndBytesConfig(
@@ -102,10 +108,7 @@ class ModelTokenizerBundle:
         # else:
         #     model_kwargs["torch_dtype"] = torch.bfloat16
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_id,
-            **model_kwargs
-        )
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
 
         # Set up padding token after model initialization
         self._setup_padding_token()
@@ -135,7 +138,7 @@ class ModelTokenizerBundle:
         """
         if self.tokenizer.pad_token is None:
             if "<|pad|>" not in self.tokenizer.get_vocab():
-                self.tokenizer.add_special_tokens({'pad_token': '<|pad|>'})
+                self.tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
             self.tokenizer.padding_side = "left"
             self.model.resize_token_embeddings(len(self.tokenizer), mean_resizing=False)
             print("Padding token added.")

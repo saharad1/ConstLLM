@@ -1,4 +1,10 @@
+import os
+
 import torch
+
+
+def ensure_output_directory(path: str):
+    os.makedirs(path, exist_ok=True)
 
 
 def print_memory_usage_all_gpus(message=""):

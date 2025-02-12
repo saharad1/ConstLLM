@@ -6,4 +6,5 @@ wandb/
 datasets/
 results/
 trained_models/
+dpo_datasets/
 __pycache__/

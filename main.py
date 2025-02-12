@@ -1,11 +1,13 @@
+import os
 import sys
 
 import torch
 
-print("Sahar3")
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 print("CUDA available:", torch.cuda.is_available())
 print("Number of GPUs:", torch.cuda.device_count())
 print("Current GPU:", torch.cuda.current_device())
+
 
 # List their names
 for i in range(torch.cuda.device_count()):
@@ -13,8 +15,9 @@ for i in range(torch.cuda.device_count()):
 
 
 import bitsandbytes as bnb
-from datasets import Dataset, load_dataset
 from transformers import AutoModelForCausalLM
+
+from datasets import Dataset, load_dataset
 
 # from bitsandbytes import load
 

@@ -1,8 +1,9 @@
 import json
 
 import torch
-from datasets import Dataset, load_dataset
 from torch.utils.data import DataLoader, Dataset
+
+from datasets import Dataset, load_dataset
 
 
 def load_dpo_dataset(file_path, include_scores=False):

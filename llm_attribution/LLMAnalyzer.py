@@ -25,7 +25,7 @@ class LLMAnalyzer:
     def __init__(
         self,
         model_id: str,
-        device: str = "cuda:0",
+        device: str = "cuda",
         extra_skip_tokens: list[str] = None,
         only_structure_tokens: bool = True,
     ):
