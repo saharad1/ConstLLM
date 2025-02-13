@@ -1,3 +1,4 @@
+import os
 import sys
 import traceback
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -17,6 +18,7 @@ from llm_attribution.TextTokenInputMod import TextTokenInputMod
 from llm_attribution.utils_attribution import AttributionMethod
 from utils.cutom_chat_template import custom_apply_chat_template
 from utils.data_models import LLMAnalysisRes
+from utils.general import print_gpu_info
 from utils.get_skip_tokens import get_skip_tokens
 from utils.ModelTokenizerBundle import ModelTokenizerBundle
 
@@ -132,8 +134,8 @@ class LLMAnalyzer:
     def analyze_lime(
         self,
         input_text: str,
-        static_texts: Union[str, List[str], None],
         target: str,
+        static_texts: Union[str, List[str], None] = None,
         **params,
     ):
         interpretable_input = self._prepare_input(input_text, static_texts)
@@ -149,9 +151,7 @@ class LLMAnalyzer:
             inp=interpretable_input, target=target, show_progress=True, **params
         )
 
-    def analyze_shapley_value_sampling(
-        self, input_text: str, generated_output: str, **params
-    ):
+    def analyze_shapley_value_sampling(self, input_text: str, target: str, **params):
         interpretable_input = self._prepare_input(input_text)
         attribution_method = ShapleyValueSampling(self.model)
         # Check if 'baselines' is in params, and add it if missing
@@ -162,22 +162,20 @@ class LLMAnalyzer:
         )
         return shapley_attr.attribute(
             inp=interpretable_input,
-            target=generated_output,
+            target=target,
             show_progress=True,
             **params,
         )
 
-    def layer_integrated_gradients(
-        self, input_text: str, generated_output: str, **params
+    def analyze_layer_integrated_gradients(
+        self, input_text: str, target: str, **params
     ):
-        # Wrap the model in DataParallel for Captum
-        # if torch.cuda.device_count() > 1:
-        #     parallel_model = torch.nn.DataParallel(self.model)
-        # else:
-        #     parallel_model = self.model
 
         # Prepare interpretable inputs
         interpretable_input = self._prepare_input(input_text)
+
+        # Check if 'baselines' is in params, and add it if missing
+        params.setdefault("baselines", self.tokenizer.pad_token_id)
 
         # Define the Layer Integrated Gradients algorithm
         lig_method = LayerIntegratedGradients(
@@ -192,17 +190,9 @@ class LLMAnalyzer:
         # Compute attribution
         return gradient_attributor.attribute(
             inp=interpretable_input,
-            target=generated_output,
+            target=target,
             **params,  # Pass additional params (e.g., n_steps, baselines)
         )
-
-    # def layer_integrated_gradients(self, input_text: str, generated_output: str, **params):
-    #     interpretable_input = self._prepare_input(input_text)
-    #     attribution_method = LayerIntegratedGradients(self.model)
-    #     layer_integrated_attr = ExtendedLLMAttribution(attr_method=attribution_method,
-    #                                           tokenizer=self.tokenizer,
-    #                                           )
-    #     return layer_integrated_attr.attribute(inp=interpretable_input, target=generated_output, show_progress=True, **params)
 
     def analyze(
         self,
@@ -237,8 +227,8 @@ class LLMAnalyzer:
                     results[method] = self.analyze_shapley_value_sampling(
                         input_text, target, **params
                     )
-                elif method == AttributionMethod.LAYER_INTEGRATED_GRADIENTS.name:
-                    results[method] = self.layer_integrated_gradients(
+                elif method == AttributionMethod.LIG.name:
+                    results[method] = self.analyze_layer_integrated_gradients(
                         input_text, target, **params
                     )
                 # Add other methods here as needed
@@ -261,96 +251,6 @@ class LLMAnalyzer:
         return analysis_results
 
 
-def run_mod_captum():
-    model_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    analyzer = LLMAnalyzer(model_id=model_id)
-    messages = []
-    user_prompt_decision = """I am feeling nervous about my midterm tomorrow. I fear that
-Choose the most plausible answer, respond only with the answer and the description:
-A) the professor will delay the midterm.
-B) I will doodle on my exam and receive points for it.
-C) my grandpa has diabetes.
-D) I will fail.
-"""
-    messages.append({"role": "user", "content": user_prompt_decision})
-    decision_prompt = custom_apply_chat_template(messages)
-    generated_output = analyzer.generate_output(decision_prompt)
-    print(f"Generated output Check: {generated_output}")
-    # method_params = {AttributionMethod.LIME: {'n_samples': 2000,
-    #                                           'baselines': analyzer.tokenizer.pad_token_id,
-    #                                           "perturbations_per_eval": 100},
-    #                  # AttributionMethod.SHAPLEY_VALUE_SAMPLING: {"n_samples": 25,
-    #                  #                                                 "baselines": analyzer.tokenizer.pad_token_id,
-    #                  #                                                 "perturbations_per_eval": 1,}
-    #                  }
-
-    # lime_results = analyzer.analyze_lime(
-    #     input_text=decision_prompt,
-    #     static_texts=["Choose the most plausible answer:\n",
-    #                   "Respond only with 'A', 'B', 'C', or 'D'."],
-    #     generated_output=generated_output,
-    #     **method_params[AttributionMethod.LIME]
-    # )
-    # sorted_all_tokens = sorted(
-    #     lime_results.seq_attr_dict.items(),
-    #     key=lambda x: abs(x[1]),
-    #     reverse=True
-    # )[:50]
-    # print("All tokens (sorted by absolute value):")
-    # for token, value in sorted_all_tokens:
-    #     print(f"{token}: {value}")
-
-    # try:
-    #     lime_results = analyzer.analyze_lime(
-    #         input_text=decision_prompt,
-    #         generated_output=generated_output,
-    #         token_classes=token_classes,
-    #         **method_params[AttributionMethod.LIME]
-    #     )
-    #     sorted_token_classes = sorted(
-    #         lime_results.seq_attr_dict.items(),
-    #         key=lambda x: abs(x[1]),
-    #         reverse=True
-    #     )[:15]
-    #     print("Only token classes (sorted by absolute value):")
-    #     for token, value in sorted_token_classes:
-    #         print(f"{token}: {value}")
-    # except Exception as e:
-    #     print(f"Error: {e}")
-
-    # shapley_results = analyzer.analyze_shapley_value_sampling(
-    #     input_text=decision_prompt,
-    #     generated_output=generated_output,
-    #     **method_params[AttributionMethod.SHAPLEY_VALUE_SAMPLING]
-    # )
-    # sorted_all_tokens = sorted(
-    #     shapley_results.seq_attr_dict.items(),
-    #     key=lambda x: abs(x[1]),
-    #     reverse=True
-    # )[:15]
-    # print("All tokens (sorted by absolute value):")
-    # for token, value in sorted_all_tokens:
-    #     print(f"{token}: {value}")
-    #
-    #
-    # try:
-    #     shapley_results = analyzer.analyze_shapley_value_sampling(
-    #         input_text=decision_prompt,
-    #         generated_output=generated_output,
-    #         token_classes=token_classes,
-    #         **method_params[AttributionMethod.SHAPLEY_VALUE_SAMPLING]
-    #     )
-    #     sorted_token_classes = sorted(
-    #         shapley_results.seq_attr_dict.items(),
-    #         key=lambda x: abs(x[1]),
-    #         reverse=True
-    #     )[:15]
-    #     print("Only token classes (sorted by absolute value):")
-    #     for token, value in sorted_token_classes:
-    #         print(f"{token}: {value}")
-    # except Exception as e:
-    #     print(f"Error: {e}")
-
-
-if __name__ == "__main__":
-    run_mod_captum()
+# if __name__ == "__main__":
+#     os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+#     print_gpu_info()

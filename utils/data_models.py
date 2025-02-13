@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 from captum.attr._core.llm_attr import LLMAttributionResult
@@ -34,28 +34,6 @@ class ScenarioSummary:
         default_factory=dict
     )  # Flexible field for extra dataset-specific information
 
-    # def to_dict(self) -> Dict[str, Any]:
-    #     """
-    #     Converts the ScenarioResult instance into a comprehensive dictionary format.
-    #     """
-    #     result_dict = {
-    #         "scenario_id": self.scenario_id,
-    #         "correct_label": self.correct_label,
-    #         "decision": {
-    #             "prompt_input": self.decision.prompt_input,
-    #             "model_output": self.decision.model_output,
-    #             "methods_scores": self.decision.methods_scores,
-    #         },
-    #         "explanation": {
-    #             "prompt_input": self.explanation.prompt_input,
-    #             "model_output": self.explanation.model_output,
-    #             "methods_scores": self.explanation.methods_scores,
-    #         },
-    #     }
-    #     if self.extra_info:
-    #         result_dict.update(self.extra_info)
-    #     return result_dict
-
     def print_results(self):
         """
         Pretty-prints the scenario results, including flexible extra fields.
@@ -76,6 +54,45 @@ class ScenarioSummary:
             print("\n--- EXTRA INFORMATION ---")
             for key, value in self.extra_info.items():
                 print(f"{key}: {value}")
+
+
+@dataclass
+class ScenarioPrompts:
+    """
+    Represents the result of a scenario, including decision and explanation phases.
+    Easily extendable with additional fields for specific datasets.
+    """
+
+    decision_prompt: str  # Prompt input for the decision phase
+    decision_output: str  # Details of the decision phase
+    explanation_prompt: str  # Details of the explanation phase
+
+
+@dataclass
+class ExplanationRanking:
+    decision_output: str
+    explanation_output: str
+    spearman_score: float
+
+
+@dataclass
+class ScenarioScores:
+    """
+    Represents the result of a scenario, including decision and explanation phases.
+    Easily extendable with additional fields for specific datasets.
+    """
+
+    scenario_id: int
+    correct_label: str
+    decision_prompt: str
+    decisions_outputs: List[str]
+    explanation_prompt: str
+    decision_attributions: List[Dict[str, float]]
+    explanation_attributions: List[Dict[str, float]]
+    explanation_outputs: List[str]
+    spearman_scores: List[float]
+    explanation_best: ExplanationRanking
+    explanation_worst: ExplanationRanking
 
 
 @dataclass
