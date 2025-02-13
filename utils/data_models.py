@@ -57,18 +57,6 @@ class ScenarioSummary:
 
 
 @dataclass
-class ScenarioPrompts:
-    """
-    Represents the result of a scenario, including decision and explanation phases.
-    Easily extendable with additional fields for specific datasets.
-    """
-
-    decision_prompt: str  # Prompt input for the decision phase
-    decision_output: str  # Details of the decision phase
-    explanation_prompt: str  # Details of the explanation phase
-
-
-@dataclass
 class ExplanationRanking:
     decision_output: str
     explanation_output: str
@@ -136,3 +124,13 @@ class LLMAnalysisRes:
     input_text: str
     target: str
     methods_scores: Dict[str, Any]
+
+
+@dataclass
+class Choice75ScenarioItem:
+    scenario_id: int
+    scenario_string: str
+    user_prompts: List[str]
+    explanation_string: str
+    label: str
+    difficulty: str
