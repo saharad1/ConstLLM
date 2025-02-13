@@ -16,6 +16,7 @@ from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
 from pipeline_dpo.comp_score import compute_kl_divergence, compute_spearman_score
+from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
 from prepare_datasets.prepare_codah import PreparedCODAHDataset
 from utils.cutom_chat_template import custom_apply_chat_template
 from utils.data_models import (
@@ -34,11 +35,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Utility functions
-def ensure_output_directory(path: str):
-    os.makedirs(path, exist_ok=True)
-
-
 def prepare_lime_params(n_samples=500, perturbations_per_eval=500):
     return {
         AttributionMethod.LIME.name: {
@@ -53,10 +49,15 @@ def prepare_lig_params(n_steps=50):
 
 
 # Dataset preparation
-def load_and_prepare_dataset(subset=20):
+def load_and_prepare_dataset(dataset_name, subset=20):
     logger.info("Loading and preparing the dataset...")
-    raw_dataset = load_dataset(path="jaredfern/codah", name="codah", split="all")
-    prepared_dataset = PreparedCODAHDataset(raw_dataset, mode="exp1", subset=subset)
+    if dataset_name == "codah":
+        raw_dataset = load_dataset(path="jaredfern/codah", name="codah", split="all")
+        prepared_dataset = PreparedCODAHDataset(raw_dataset, subset=subset)
+    elif dataset_name == "choice75":
+        prepared_dataset = PreparedCHOICE75Dataset(subset=subset)
+    else:
+        raise ValueError(f"Invalid dataset name: {dataset_name}")
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
     return prepared_dataset
 
@@ -141,7 +142,6 @@ def process_scenario(
         decision_attributions = scenario_summary.decision_scores[current_method]
         explanation_attributions = scenario_summary.explanation_scores[current_method]
         print(f"Decision attributions: {decision_attributions}")
-        sys.exit()
         curr_spearman_score = compute_spearman_score(
             decision_attributions=decision_attributions,
             explanation_attributions=explanation_attributions,
@@ -197,9 +197,17 @@ def run_collect_d():
     )
 
     # Generate a timestamped run name
+    dataset_name = "choice75"  # Set to "codah" or "choice75"
+    assert dataset_name in [
+        "codah",
+        "choice75",
+    ], f"Invalid dataset name: {dataset_name}"
+
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-    run_name = f"codah_{timestamp}_LLama"
-    jsonl_filename = Path("dpo_datasets") / "codah_dpo_datasets" / f"{run_name}.jsonl"
+    run_name = f"{dataset_name}_{timestamp}_LLama"
+    jsonl_filename = (
+        Path("dpo_datasets") / f"{dataset_name}_dpo_datasets" / f"{run_name}.jsonl"
+    )
 
     # Ensure directories exist
     jsonl_filename.parent.mkdir(parents=True, exist_ok=True)
@@ -208,11 +216,14 @@ def run_collect_d():
     subset = None  # Set to None to process the entire dataset
 
     # Load and prepare dataset
-    prepared_dataset = load_and_prepare_dataset(subset=subset)
+    prepared_dataset = load_and_prepare_dataset(
+        dataset_name=dataset_name, subset=subset
+    )
 
     config = {
         "run_name": run_name,
         "num_dec_exp": num_dec_exp,
+        "dataset": dataset_name,
         "subset": subset,
         "methods_params_decision": methods_params_decision,
         "methods_params_explanation": methods_params_explanation,
@@ -221,7 +232,7 @@ def run_collect_d():
     # Initialize wandb
     wandb_log = False
     wandb.init(
-        project="codah-dataset-dpo",
+        project=f"{dataset_name}-dataset-dpo",
         name=run_name,
         config=config,
         mode="online" if wandb_log else "disabled",

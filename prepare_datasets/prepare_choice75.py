@@ -120,6 +120,6 @@ class PreparedCHOICE75Dataset(Dataset):
 
 if __name__ == "__main__":
     choice75_dataset = PreparedCHOICE75Dataset()
-    print(choice75_dataset[100])
+    print(choice75_dataset.choice75_scenarios[0].scenario_string)
     print(len(choice75_dataset))
     print(choice75_dataset.choice75_scenarios[4].scenario_string)
