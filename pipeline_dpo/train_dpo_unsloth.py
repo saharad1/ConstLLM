@@ -129,4 +129,4 @@ def train_dpo_seq(
 if __name__ == "__main__":
     model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     # model_name = "unsloth/Meta-Llama-3.1-8B-Instruct"
-    train_dpo_seq(model_name=model_name, include_scores=True)
+    train_dpo_seq(model_name=model_name, include_scores=False)
