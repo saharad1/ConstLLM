@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -18,26 +19,32 @@ def load_dpo_dataset(file_path, include_scores=False):
         """
         prompt = [
             {"role": "user", "content": item["decision_prompt"]},
-            {"role": "assistant", "content": item["decision_output"]},
+            {
+                "role": "assistant",
+                "content": item["explanation_best"]["decision_output"],
+            },
             {"role": "user", "content": item["explanation_prompt"]},
         ]
 
         dpo_entry = {
             "prompt": prompt,
             "chosen": [
-                {"role": "assistant", "content": item["explanation_best_output"]}
+                {
+                    "role": "assistant",
+                    "content": item["explanation_best"]["explanation_output"],
+                }
             ],
             "rejected": [
                 {
                     "role": "assistant",
-                    "content": item["explanation_worst_output"],
+                    "content": item["explanation_worst"]["explanation_output"],
                 }
             ],
         }
 
         if include_scores:
-            dpo_entry["score_chosen"] = item["explanation_best_score"]
-            dpo_entry["score_rejected"] = item["explanation_worst_score"]
+            dpo_entry["score_chosen"] = item["explanation_best"]["spearman_score"]
+            dpo_entry["score_rejected"] = item["explanation_worst"]["spearman_score"]
 
         return dpo_entry
 
@@ -48,72 +55,89 @@ def load_dpo_dataset(file_path, include_scores=False):
     return dataset.map(process_example, remove_columns=dataset.column_names)
 
 
-# class DPODatasetCodah(Dataset):
-#     """
-#     PyTorch dataset for Direct Preference Optimization (DPO).
-#     Loads a dataset in the required format for Hugging Face `trl`.
-#     """
+def preprocess_jsonl(input_path, output_path, include_scores=False):
+    """
+    Cleans the JSONL file to only keep fields required for DPO training.
+    Removes unnecessary fields and ensures schema consistency.
+    """
+    cleaned_data = []
 
-#     def __init__(self, data_path, include_scores=False):
-#         self.data = self.load_dpo_data(data_path, include_scores)
+    with open(input_path, "r") as f:
+        for line in f:
+            try:
+                item = json.loads(line)
 
-#     def load_dpo_data(self, file_path, include_scores):
-#         """Load and process JSONL data into DPO format."""
-#         dpo_data = []
-#         with open(file_path, "r", encoding="utf-8") as infile:
-#             for line in infile:
-#                 item = json.loads(line.strip())
+                # Ensure required fields exist
+                if not all(
+                    k in item
+                    for k in [
+                        "decision_prompt",
+                        "explanation_best",
+                        "explanation_worst",
+                        "explanation_prompt",
+                    ]
+                ):
+                    print(f"Skipping row due to missing fields: {item}")
+                    continue
 
-#                 # Create conversation-based prompt
-#                 prompt = [
-#                     {"role": "user", "content": item["decision_prompt"]},
-#                     {"role": "assistant", "content": item["decision_output"]},
-#                     {"role": "user", "content": item["explanation_prompt"]},
-#                 ]
+                # Construct cleaned entry
+                cleaned_entry = {
+                    "decision_prompt": item["decision_prompt"],
+                    "explanation_prompt": item["explanation_prompt"],
+                    "explanation_best": {
+                        "decision_output": item["explanation_best"].get(
+                            "decision_output", ""
+                        ),
+                        "explanation_output": item["explanation_best"].get(
+                            "explanation_output", ""
+                        ),
+                    },
+                    "explanation_worst": {
+                        "decision_output": item["explanation_worst"].get(
+                            "decision_output", ""
+                        ),
+                        "explanation_output": item["explanation_worst"].get(
+                            "explanation_output", ""
+                        ),
+                    },
+                }
 
-#                 # Create dataset entry
-#                 dpo_entry = {
-#                     "prompt": prompt,
-#                     "chosen": item["explanation_best_output"],
-#                     "rejected": item["explanation_worst_output"],
-#                 }
+                # Include scores if needed
+                if include_scores:
+                    cleaned_entry["explanation_best"]["spearman_score"] = float(
+                        item["explanation_best"].get("spearman_score", 0.0)
+                    )
+                    cleaned_entry["explanation_worst"]["spearman_score"] = float(
+                        item["explanation_worst"].get("spearman_score", 0.0)
+                    )
 
-#                 # Optionally add scores
-#                 if include_scores:
-#                     dpo_entry["score_chosen"] = item["explanation_best_score"]
-#                     dpo_entry["score_rejected"] = item["explanation_worst_score"]
+                cleaned_data.append(cleaned_entry)
 
-#                 dpo_data.append(dpo_entry)
+            except json.JSONDecodeError as e:
+                print(f"Skipping malformed JSON row: {e}")
 
-#         return dpo_data
-
-#     def __len__(self):
-#         return len(self.data)
-
-#     def __getitem__(self, idx):
-#         return self.data[idx]
-
-
-# # Load dataset as a PyTorch DataLoader
-# def get_dpo_dataloader(file_path, batch_size=4, include_scores=False):
-#     dataset = DPODatasetCodah(file_path, include_scores)
-#     return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    # Save cleaned dataset
+    with open(output_path, "w") as f:
+        for entry in cleaned_data:
+            f.write(json.dumps(entry) + "\n")
 
 
 # Example usage
 if __name__ == "__main__":
-    # # Input file path (change to your dataset location)
-    # input_file = "results/codah_res/codah_results2.jsonl"
-    # dpo_dataloader = get_dpo_dataloader(input_file, batch_size=4, include_scores=False)
-
-    # # Iterate through one batch
-    # for batch in dpo_dataloader:
-    #     print(batch)
-    #     break  # Print one batch and stop
-
-    train_dataset = load_dpo_dataset(
-        "results/codah_res/codah_results2.jsonl", include_scores=True
+    dpo_dataset_path = (
+        Path("dpo_datasets") / "codah_dpo_datasets" / "codah_250213_182318_LLama.jsonl"
     )
+
+    output_dpo_dataset = (
+        Path("dpo_datasets")
+        / "cleaned_codah_dpo_datasets"
+        / "cleaned_codah_250213_182318_LLama.jsonl"
+    )
+    preprocess_jsonl(
+        str(dpo_dataset_path), str(output_dpo_dataset), include_scores=False
+    )
+    # Preprocess the JSONL file
+    train_dataset = load_dpo_dataset(str(output_dpo_dataset), include_scores=False)
 
     # Check a sample
     print(train_dataset[0])

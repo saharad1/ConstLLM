@@ -16,7 +16,7 @@ from captum.attr._core.llm_attr import LLMAttributionResult
 from llm_attribution.LLMAttributionMod import ExtendedLLMAttribution
 from llm_attribution.TextTokenInputMod import TextTokenInputMod
 from llm_attribution.utils_attribution import AttributionMethod
-from utils.cutom_chat_template import custom_apply_chat_template
+from utils.custom_chat_template import custom_apply_chat_template
 from utils.data_models import LLMAnalysisRes
 from utils.general import print_gpu_info
 from utils.get_skip_tokens import get_skip_tokens
