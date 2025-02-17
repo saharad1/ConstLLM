@@ -7,9 +7,6 @@ def ensure_output_directory(path: str):
     os.makedirs(path, exist_ok=True)
 
 
-import torch
-
-
 def print_gpu_info():
     """Prints available GPUs, their names, and memory usage."""
     print(f"Available GPUs: {torch.cuda.device_count()}")

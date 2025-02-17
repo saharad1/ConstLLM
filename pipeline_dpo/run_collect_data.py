@@ -236,22 +236,11 @@ def run_collect_d(wandb_mode: bool = True):
     # Initialize LLM analyzer
     llm_analyzer = initialize_llm_analyzer()
 
-    # # Prepare attribution for LIME
-    # methods_params_decision = prepare_lime_params(
-    #     n_samples=500, perturbations_per_eval=250
-    # )
-    # methods_params_explanation = prepare_lime_params(
-    #     n_samples=500, perturbations_per_eval=250
-    # )
-
-    # # Prepare attribution for LIG
-    # methods_params_decision = prepare_lig_params(n_steps=50)
-    # methods_params_explanation = prepare_lig_params(n_steps=50)
-
     # set configurations
     dataset_name = "codah"  # Set to "codah" or "choice75"
-    num_dec_exp = 1
+    num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
+    attribution_method = AttributionMethod.LIME.name
 
     assert dataset_name in [
         "codah",
@@ -259,7 +248,6 @@ def run_collect_d(wandb_mode: bool = True):
     ], f"Invalid dataset name: {dataset_name}"
 
     # Set parameters using a single function call per method
-    attribution_method = AttributionMethod.LIG.name
     if attribution_method == AttributionMethod.LIME.name:
         methods_params_decision = MethodParams.set_params(
             AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=250
@@ -269,10 +257,10 @@ def run_collect_d(wandb_mode: bool = True):
         )
     elif attribution_method == AttributionMethod.LIG.name:
         methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=1
+            AttributionMethod.LIG.name, n_steps=50
         )
         methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=1
+            AttributionMethod.LIG.name, n_steps=50
         )
     else:
         raise ValueError(f"Invalid attribution method: {attribution_method}")

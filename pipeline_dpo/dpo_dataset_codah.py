@@ -1,4 +1,6 @@
 import json
+import os
+import random
 from pathlib import Path
 
 import torch
@@ -84,32 +86,18 @@ def preprocess_jsonl(input_path, output_path, include_scores=False):
                 cleaned_entry = {
                     "decision_prompt": item["decision_prompt"],
                     "explanation_prompt": item["explanation_prompt"],
-                    "explanation_best": {
-                        "decision_output": item["explanation_best"].get(
-                            "decision_output", ""
-                        ),
-                        "explanation_output": item["explanation_best"].get(
-                            "explanation_output", ""
-                        ),
-                    },
-                    "explanation_worst": {
-                        "decision_output": item["explanation_worst"].get(
-                            "decision_output", ""
-                        ),
-                        "explanation_output": item["explanation_worst"].get(
-                            "explanation_output", ""
-                        ),
-                    },
+                    "explanation_best": item["explanation_best"],
+                    "explanation_worst": item["explanation_worst"],
                 }
 
-                # Include scores if needed
-                if include_scores:
-                    cleaned_entry["explanation_best"]["spearman_score"] = float(
-                        item["explanation_best"].get("spearman_score", 0.0)
-                    )
-                    cleaned_entry["explanation_worst"]["spearman_score"] = float(
-                        item["explanation_worst"].get("spearman_score", 0.0)
-                    )
+                # # Include scores if needed
+                # if include_scores:
+                #     cleaned_entry["explanation_best"]["spearman_score"] = float(
+                #         item["explanation_best"].get("spearman_score", 0.0)
+                #     )
+                #     cleaned_entry["explanation_worst"]["spearman_score"] = float(
+                #         item["explanation_worst"].get("spearman_score", 0.0)
+                #     )
 
                 cleaned_data.append(cleaned_entry)
 
@@ -122,8 +110,57 @@ def preprocess_jsonl(input_path, output_path, include_scores=False):
             f.write(json.dumps(entry) + "\n")
 
 
-# Example usage
-if __name__ == "__main__":
+def split_jsonl(
+    input_path, output_dir, train_ratio=0.7, eval_ratio=0.2, test_ratio=0.1, seed=42
+):
+    """
+    Splits a JSONL file into train/eval/test sets based on given ratios.
+    """
+    # assert train_ratio + eval_ratio + test_ratio == 1.0, "Ratios must sum to 1.0"
+
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Load all lines
+    with open(input_path, "r") as f:
+        data = [json.loads(line) for line in f]
+
+    # # Shuffle data for randomness
+    # random.seed(seed)
+    # random.shuffle(data)
+
+    # Compute split indices
+    total = len(data)
+    train_size = int(total * train_ratio)
+    eval_size = int(total * eval_ratio)
+
+    # Split dataset
+    train_data = data[:train_size]
+    eval_data = data[train_size : train_size + eval_size]
+    test_data = data[train_size + eval_size :]
+
+    # Save splits
+    def save_jsonl(data, path):
+        with open(path, "w") as f:
+            for entry in data:
+                f.write(json.dumps(entry) + "\n")
+
+    save_jsonl(train_data, f"{output_dir}/train.jsonl")
+    save_jsonl(eval_data, f"{output_dir}/eval.jsonl")
+    save_jsonl(test_data, f"{output_dir}/test.jsonl")
+
+    print(
+        f"Dataset split successfully: {len(train_data)} train, {len(eval_data)} eval, {len(test_data)} test"
+    )
+
+
+def split_dataset_jsol():
+    input_jsonl = "/home/ahallak/saharad/ConstLLM/dpo_datasets/cleaned_codah_dpo_datasets/cleaned_codah_250213_182318_LLama.jsonl"
+    output_dir = "/home/ahallak/saharad/ConstLLM/dpo_datasets/cleaned_codah_dpo_datasets/codah_250213_182318_LLama"  # Change to your directory
+    split_jsonl(input_jsonl, output_dir)
+
+
+def create_cleaned_data():
     dpo_dataset_path = (
         Path("dpo_datasets") / "codah_dpo_datasets" / "codah_250213_182318_LLama.jsonl"
     )
@@ -136,8 +173,27 @@ if __name__ == "__main__":
     preprocess_jsonl(
         str(dpo_dataset_path), str(output_dpo_dataset), include_scores=False
     )
-    # Preprocess the JSONL file
-    train_dataset = load_dpo_dataset(str(output_dpo_dataset), include_scores=False)
 
-    # Check a sample
-    print(train_dataset[0])
+
+# Example usage
+if __name__ == "__main__":
+    # dpo_dataset_path = (
+    #     Path("dpo_datasets") / "codah_dpo_datasets" / "codah_250213_182318_LLama.jsonl"
+    # )
+
+    # output_dpo_dataset = (
+    #     Path("dpo_datasets")
+    #     / "cleaned_codah_dpo_datasets"
+    #     / "cleaned_codah_250213_182318_LLama.jsonl"
+    # )
+    # preprocess_jsonl(
+    #     str(dpo_dataset_path), str(output_dpo_dataset), include_scores=False
+    # )
+    # # Preprocess the JSONL file
+    # train_dataset = load_dpo_dataset(str(output_dpo_dataset), include_scores=False)
+
+    # # Check a sample
+    # print(train_dataset[0])
+    # create_cleaned_data()
+
+    split_dataset_jsol()

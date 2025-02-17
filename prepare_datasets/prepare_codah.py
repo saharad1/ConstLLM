@@ -1,8 +1,9 @@
 from collections import namedtuple
 from typing import Union
 
-from datasets import Dataset, load_dataset
 from torch.utils.data import Dataset
+
+from datasets import load_dataset
 
 # ScenarioItem = namedtuple('ScenarioItem', ['user_prompts', 'label'])
 from utils.data_models import ScenarioItem
@@ -86,7 +87,7 @@ class PreparedCODAHDataset(Dataset):
         prompt += "\n".join(
             f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options)
         )
-        prompt += "\n" + self.instruction_decision_2
+        # prompt += "\n" + self.instruction_decision_2
 
         # Get the correct answer
         label = example["correct_answer_idx"]
@@ -94,7 +95,7 @@ class PreparedCODAHDataset(Dataset):
 
         # Create ScenarioItem
         user_prompts = [
-            self.instruction_decision + self.instruction_decision_2,
+            self.instruction_decision,
             self.instruction_explain,
         ]
         return ScenarioItem(

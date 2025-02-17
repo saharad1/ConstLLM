@@ -1,6 +1,6 @@
 import pickle
 
-import pre
+# import pre
 import torch
 from peft import LoraConfig, TaskType, get_peft_model
 from torch.utils.data import DataLoader
@@ -84,7 +84,7 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
         "do_sample": True,  # yes, we want to sample
         "pad_token_id": tokenizer.pad_token_id,
         # most decoder models don't have a padding token - use EOS token instead
-        "max_new_tokens": 32,  # specify how many tokens you want to generate at most
+        "max_new_tokens": 100,  # specify how many tokens you want to generate at most
     }
 
     mean_scores = []
@@ -121,9 +121,10 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
 
             # Compute rewards
             # Change here to my method
-            rewards = pre.compute_reward_seq(
-                decoded_responses, topic_model, relevant_topics
-            )
+            # rewards = pre.compute_reward_seq(
+            #     decoded_responses, topic_model, relevant_topics
+            # )
+            rewards = 1
             avg_r = sum(rewards) / len(rewards)
             for i in range(5):
                 print(
