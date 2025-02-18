@@ -1,6 +1,7 @@
+import os
 import pickle
+import sys
 
-# import pre
 import torch
 from peft import LoraConfig, TaskType, get_peft_model
 from torch.utils.data import DataLoader
@@ -16,18 +17,25 @@ from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 
 from datasets import Dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
+from pipelline_ppo.ppo_dataset_codah import create_codah_ppo_dataset
+from utils.general import print_gpu_info
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+print_gpu_info()
 
 
-def seq_ppo(model_name, prompts):
+def seq_ppo(model_name):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    llm_analyzer = LLMAnalyzer(
-        model_id="meta-llama/Meta-Llama-3.1-8B-Instruct", device="cuda"
-    )
-    dataset = Dataset.from_dict({"query": prompts})
+    # llm_analyzer = LLMAnalyzer(
+    #     model_id=model_name, device="cuda"
+    # )
+    # dataset = Dataset.from_dict({"query": prompts})
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, torch_dtype=torch.bfloat16
+    ).to(device)
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         r=8,
@@ -38,17 +46,21 @@ def seq_ppo(model_name, prompts):
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
         model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
+        model.config.pad_token_id = tokenizer.pad_token_id
 
     def tokenize(sample):
-        tokens = tokenizer(sample["query"])
-        sample["input_ids"] = tokens["input_ids"]
-        sample["attention_mask"] = tokens["attention_mask"]
+        tokens = tokenizer(sample["query"], padding=True, truncation=True)
 
-        return sample
+        # Preserve raw text in "raw_data" while adding tokenized fields
+        return {
+            "input_ids": tokens["input_ids"],
+            "attention_mask": tokens["attention_mask"],
+            "raw_data": sample["query"],  # Keep original query for reward function
+        }
 
-    dataset = dataset.map(tokenize, batched=False, remove_columns=["query"])
+    dataset = dataset.map(tokenize, batched=False)
 
-    print(dataset)
+    train_dataset = create_codah_ppo_dataset(model, tokenizer)
 
     model = get_peft_model(model, lora_config).to(device)
 
@@ -76,7 +88,7 @@ def seq_ppo(model_name, prompts):
         config=ppo_config,
         model=model,
         tokenizer=tokenizer,
-        dataset=dataset,
+        dataset=train_dataset,
         data_collator=data_collator,
     )
 
@@ -159,3 +171,8 @@ def seq_ppo(model_name, prompts):
     ppo_trainer.save_pretrained("my_ppo_model")
     with open("stats.pkl", "wb") as f:
         pickle.dump([mean_scores, std_scores, KL_scores, avg_rewards], f)
+
+
+if __name__ == "__main__":
+    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    seq_ppo(model_name)
