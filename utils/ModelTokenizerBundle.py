@@ -46,7 +46,7 @@ class ModelTokenizerBundle:
         self.quantization_type: Optional[str] = quantization_type
         self.tokenizer = None
         self.model = None
-        self.device = torch.device(device)
+        self.device = device
 
         self._initialize()
 

@@ -28,7 +28,7 @@ from utils.data_models import (
 )
 from utils.general import print_gpu_info
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 print_gpu_info()
 
 # Set up logging
@@ -57,19 +57,6 @@ class MethodParams:
         if method_name not in cls._METHOD_PARAMS_FUNCTIONS:
             raise ValueError(f"Invalid method name: {method_name}")
         return cls._METHOD_PARAMS_FUNCTIONS[method_name](**kwargs)
-
-
-# def prepare_lime_params(n_samples=500, perturbations_per_eval=500):
-#     return {
-#         AttributionMethod.LIME.name: {
-#             "n_samples": n_samples,
-#             "perturbations_per_eval": perturbations_per_eval,
-#         }
-#     }
-
-
-# def prepare_lig_params(n_steps=50):
-#     return {AttributionMethod.LIG.name: {"n_steps": n_steps}}
 
 
 def extract_choice(output: str) -> str:
@@ -103,12 +90,6 @@ def load_and_prepare_dataset(dataset_name, subset=20):
         raise ValueError(f"Invalid dataset name: {dataset_name}")
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
     return prepared_dataset
-
-
-# LLM analyzer initialization
-def initialize_llm_analyzer():
-    logger.info("Initializing LLM analyzer...")
-    return LLMAnalyzer(model_id="meta-llama/Meta-Llama-3.1-8B-Instruct", device="cuda")
 
 
 # Generalized phase function
@@ -211,15 +192,14 @@ def process_scenario(
 
 
 # Main function
-def run_collect_d(wandb_mode: bool = True):
-    # Initialize LLM analyzer
-    llm_analyzer = initialize_llm_analyzer()
+def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
     dataset_name = "codah"  # Set to "codah" or "choice75"
     num_dec_exp = 5
-    subset = 10  # Set to None to process the entire dataset
-    attribution_method = AttributionMethod.LIME.name
+    subset = 100  # Set to None to process the entire dataset
+    attribution_method = AttributionMethod.LIG.name
+    device = "cuda"
 
     assert dataset_name in [
         "codah",
@@ -236,11 +216,12 @@ def run_collect_d(wandb_mode: bool = True):
         )
     elif attribution_method == AttributionMethod.LIG.name:
         methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=50
+            AttributionMethod.LIG.name, n_steps=30
         )
         methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=50
+            AttributionMethod.LIG.name, n_steps=30
         )
+        device = "auto"
     else:
         raise ValueError(f"Invalid attribution method: {attribution_method}")
 
@@ -250,18 +231,13 @@ def run_collect_d(wandb_mode: bool = True):
     jsonl_filename = (
         Path("dpo_datasets") / f"{dataset_name}_dpo_datasets" / f"{run_name}.jsonl"
     )
-
     # Ensure directories exist
     if wandb_mode:
         jsonl_filename.parent.mkdir(parents=True, exist_ok=True)
 
-    # Load and prepare dataset
-    prepared_dataset = load_and_prepare_dataset(
-        dataset_name=dataset_name, subset=subset
-    )
-
     config = {
         "run_name": run_name,
+        "model_id": model_id,
         "num_dec_exp": num_dec_exp,
         "dataset": dataset_name,
         "subset": subset,
@@ -269,6 +245,15 @@ def run_collect_d(wandb_mode: bool = True):
         "methods_params_decision": methods_params_decision,
         "methods_params_explanation": methods_params_explanation,
     }
+
+    # Initialize LLM analyzer
+    logger.info("Initializing LLM analyzer...")
+    llm_analyzer = LLMAnalyzer(model_id=model_id, device=device)
+
+    # Load and prepare dataset
+    prepared_dataset = load_and_prepare_dataset(
+        dataset_name=dataset_name, subset=subset
+    )
 
     # Initialize wandb
     wandb.init(
@@ -325,18 +310,19 @@ def run_collect_d(wandb_mode: bool = True):
         wandb.log(
             {
                 "iteration": iteration,
-                "scenario_id": scenario_res.scenario_id,
+                "accuracy": accuracy_label,
+                "spearman_best_score_avg": spearman_best_score_avg,
+                "spearman_worst_score_avg": spearman_worst_score_avg,
+                "scenario/scenario_id": scenario_res.scenario_id,
                 "scenario/iteration_time_seconds": iteration_time,
                 "scenario/best_spearman_score": spearman_best_score,
                 "scenario/worst_spearman_score": spearman_worst_score,
                 "scenario/spearman_diff": spearman_best_score - spearman_worst_score,
                 "scenario/spearman_std": std_spearman,
-                "accuracy_label": accuracy_label,
-                "spearman_best_score_avg": spearman_best_score_avg,
-                "spearman_worst_score_avg": spearman_worst_score_avg,
             }
         )
 
 
 if __name__ == "__main__":
-    run_collect_d(wandb_mode=False)
+    model_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    run_collect_d(model_id=model_id, wandb_mode=True)
