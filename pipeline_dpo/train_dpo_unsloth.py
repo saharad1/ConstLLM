@@ -79,7 +79,7 @@ def train_dpo_seq(
         / "LLama-instruct-8b-unsloth-tuned"
         / run_name
     )
-    wandb_mode = True
+    wandb_mode = False
     wandb.init(
         project="codah-train-dpo",
         name=run_name,

@@ -132,7 +132,7 @@ def process_scenario(
     num_dec_exp,
 ):
     spearman_triplet = []
-    decision_outputs = []
+    # decision_output = ""
     explanation_outputs = []
     spearman_scores = []
     current_method = next(iter(methods_params_decision))
@@ -142,22 +142,24 @@ def process_scenario(
     ), "Mismatched methods"
 
     print(f"Current method: {current_method}")
+
+    # Decision Phase
+    decision_prompt = custom_apply_chat_template(
+        [{"role": "user", "content": scenario_item.scenario_string}]
+    )
+    decision_output, decision_result = run_phase(
+        llm_analyzer=llm_analyzer,
+        prompt=decision_prompt,
+        methods_params=methods_params_decision,
+        phase="decision",
+    )
+
+    decision_attributions = decision_result.methods_scores[current_method]
+    explanation_attributions_list = []
     for i in range(num_dec_exp):
         logger.info(
             f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}..."
         )
-        # Decision Phase
-        decision_prompt = custom_apply_chat_template(
-            [{"role": "user", "content": scenario_item.scenario_string}]
-        )
-        decision_output, decision_result = run_phase(
-            llm_analyzer=llm_analyzer,
-            prompt=decision_prompt,
-            methods_params=methods_params_decision,
-            phase="decision",
-        )
-        decision_outputs.append(decision_output)
-
         # Explanation Phase
         explanation_prompt = custom_apply_chat_template(
             [
@@ -173,23 +175,10 @@ def process_scenario(
             phase="explanation",
         )
         explanation_outputs.append(explanation_output)
-
-        # Scenario summary and scores
-        scenario_summary = ScenarioSummary(
-            scenario_id=scenario_item.scenario_id,
-            correct_label=scenario_item.label,
-            decision_prompt=scenario_item.scenario_string,
-            decision_output=decision_output,
-            decision_scores=decision_result.methods_scores,
-            explanation_prompt=scenario_item.explanation_string,
-            explanation_output=explanation_output,
-            explanation_scores=explanation_result.methods_scores,
-        )
+        explanation_attributions = explanation_result.methods_scores[current_method]
+        explanation_attributions_list.append(explanation_attributions)
 
         # Compute Spearman score
-        decision_attributions = scenario_summary.decision_scores[current_method]
-        explanation_attributions = scenario_summary.explanation_scores[current_method]
-        print(f"Decision attributions: {decision_attributions}")
         curr_spearman_score = compute_spearman_score(
             decision_attributions=decision_attributions,
             explanation_attributions=explanation_attributions,
@@ -203,26 +192,16 @@ def process_scenario(
     # Best and worst explanations
     explanation_best = max(spearman_triplet, key=lambda x: x.spearman_score)
     explanation_worst = min(spearman_triplet, key=lambda x: x.spearman_score)
-    # scenario_result= ScenarioResult(
-    #     scenario_id=scenario_item.scenario_id,
-    #     correct_label=scenario_item.label,
-    #     decision_prompt=scenario_item.scenario_string,
-    #     decision_output=decision_output,
-    #     explanation_prompt=scenario_item.explanation_string,
-    #     explanation_best_output=explanation_best[0],
-    #     explanation_best_score=explanation_best[1],
-    #     explanation_worst_output=explanation_worst[0],
-    #     explanation_worst_score=explanation_worst[1],
-    # )
+
     scenario_result = ScenarioScores(
         scenario_id=scenario_item.scenario_id,
         correct_label=scenario_item.label,
         decision_prompt=scenario_item.scenario_string,
-        decisions_outputs=decision_outputs,
+        decision_output=decision_output,
         explanation_prompt=scenario_item.explanation_string,
         explanation_outputs=explanation_outputs,
         decision_attributions=decision_attributions,
-        explanation_attributions=explanation_attributions,
+        explanation_attributions=explanation_attributions_list,
         spearman_scores=spearman_scores,
         explanation_best=explanation_best,
         explanation_worst=explanation_worst,
@@ -239,7 +218,7 @@ def run_collect_d(wandb_mode: bool = True):
     # set configurations
     dataset_name = "codah"  # Set to "codah" or "choice75"
     num_dec_exp = 5
-    subset = None  # Set to None to process the entire dataset
+    subset = 10  # Set to None to process the entire dataset
     attribution_method = AttributionMethod.LIME.name
 
     assert dataset_name in [
@@ -250,10 +229,10 @@ def run_collect_d(wandb_mode: bool = True):
     # Set parameters using a single function call per method
     if attribution_method == AttributionMethod.LIME.name:
         methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=250
+            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
         )
         methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=250
+            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
         )
     elif attribution_method == AttributionMethod.LIG.name:
         methods_params_decision = MethodParams.set_params(
@@ -293,13 +272,15 @@ def run_collect_d(wandb_mode: bool = True):
 
     # Initialize wandb
     wandb.init(
-        project=f"{dataset_name}-dataset-dpo",
+        project=f"{dataset_name}-dataset",
         name=run_name,
         config=config,
         mode="online" if wandb_mode else "disabled",
     )
 
     success_sum = 0
+    spearman_best_score_sum = 0
+    spearman_worst_score_sum = 0
     for iteration, scenario_item in tqdm(
         enumerate(prepared_dataset, 1),
         total=len(prepared_dataset),
@@ -323,39 +304,36 @@ def run_collect_d(wandb_mode: bool = True):
             logger.error(f"Error processing scenario {iteration}: {e}")
             continue
 
+        # Compute key results
         # Compute iteration time
         iteration_time = time.time() - start_time  # End timing
-
-        # Compute key results
         correct_choice = extract_choice(scenario_res.correct_label)
-        decision_choices = [
-            extract_choice(decision) for decision in scenario_res.decisions_outputs
-        ]
-        scenario_success_count = sum(
-            decision == correct_choice for decision in decision_choices
-        )
-        most_common_choice, _ = Counter(decision_choices).most_common(1)[0]
-        most_common_choice_correct = most_common_choice == correct_choice
-        success_sum += most_common_choice_correct
-        success_rate = success_sum / iteration
+        decision_choice = extract_choice(scenario_res.decision_output)
+        success_sum += decision_choice == correct_choice
+        accuracy_label = success_sum / iteration
 
         # spearman correlations
         spearman_best_score = scenario_res.explanation_best.spearman_score
         spearman_worst_score = scenario_res.explanation_worst.spearman_score
         std_spearman = np.std(np.array(scenario_res.spearman_scores), ddof=1)
+        spearman_best_score_sum += spearman_best_score
+        spearman_best_score_avg = spearman_best_score_sum / iteration
+        spearman_worst_score_sum += spearman_worst_score
+        spearman_worst_score_avg = spearman_worst_score_sum / iteration
 
         # Log key results and iteration time for tracking progress in wandb
         wandb.log(
             {
                 "iteration": iteration,
                 "scenario_id": scenario_res.scenario_id,
-                "spearman_best_score": spearman_best_score,
-                "worst_spearman_score": spearman_worst_score,
-                "spearman_diff": spearman_best_score - spearman_worst_score,
-                "spearman_std": std_spearman,
-                "iteration_time_seconds": iteration_time,  # Log the time taken per scenario
-                "scenario_sucess_count": scenario_success_count,
-                "success_rate": success_rate,
+                "scenario/iteration_time_seconds": iteration_time,
+                "scenario/best_spearman_score": spearman_best_score,
+                "scenario/worst_spearman_score": spearman_worst_score,
+                "scenario/spearman_diff": spearman_best_score - spearman_worst_score,
+                "scenario/spearman_std": std_spearman,
+                "accuracy_label": accuracy_label,
+                "spearman_best_score_avg": spearman_best_score_avg,
+                "spearman_worst_score_avg": spearman_worst_score_avg,
             }
         )
 

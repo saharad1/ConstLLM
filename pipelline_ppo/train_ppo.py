@@ -1,6 +1,7 @@
 import os
 import pickle
 import sys
+from pathlib import Path
 
 import torch
 from peft import LoraConfig, TaskType, get_peft_model
@@ -10,6 +11,7 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     DataCollatorWithPadding,
+    GenerationConfig,
     TextGenerationPipeline,
     pipeline,
 )
@@ -17,7 +19,11 @@ from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 
 from datasets import Dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
-from pipelline_ppo.ppo_dataset_codah import create_codah_ppo_dataset
+from pipelline_ppo.ppo_dataset_codah import (
+    create_codah_ppo_dataset,
+    load_ppo_dataset_jsonl,
+)
+from utils.custom_chat_template import custom_apply_chat_template
 from utils.general import print_gpu_info
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
@@ -33,7 +39,7 @@ def seq_ppo(model_name):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
-    model = AutoModelForCausalLM.from_pretrained(
+    base_model = AutoModelForCausalLM.from_pretrained(
         model_name, torch_dtype=torch.bfloat16
     ).to(device)
     lora_config = LoraConfig(
@@ -45,51 +51,82 @@ def seq_ppo(model_name):
 
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
-        model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
-        model.config.pad_token_id = tokenizer.pad_token_id
+        base_model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
+        base_model.config.pad_token_id = tokenizer.pad_token_id
 
     def tokenize(sample):
-        tokens = tokenizer(sample["query"], padding=True, truncation=True)
+        tokens = tokenizer(
+            custom_apply_chat_template(sample["query"]), padding=True, truncation=True
+        )
 
         # Preserve raw text in "raw_data" while adding tokenized fields
         return {
             "input_ids": tokens["input_ids"],
             "attention_mask": tokens["attention_mask"],
-            "raw_data": sample["query"],  # Keep original query for reward function
+            # "raw_data": sample["query"],  # Keep original query for reward function
         }
 
-    dataset = dataset.map(tokenize, batched=False)
+    # dataset = create_codah_ppo_dataset(base_model, tokenizer, subset=10)
+    dataset = load_ppo_dataset_jsonl(
+        file_path=str(Path("ppo_datasets/ppo_codah_dataset.jsonl"))
+    )
 
-    train_dataset = create_codah_ppo_dataset(model, tokenizer)
+    dataset = Dataset.from_list(dataset)
 
-    model = get_peft_model(model, lora_config).to(device)
+    train_dataset = dataset.map(tokenize, batched=False)
 
-    model = AutoModelForCausalLMWithValueHead.from_pretrained(model)
+    base_model = get_peft_model(base_model, lora_config).to(device)
+
+    # model = AutoModelForCausalLMWithValueHead.from_pretrained(base_model)
+    # # Convert base model to PPO model with a value head
+    model = AutoModelForCausalLMWithValueHead.from_pretrained(model_name)
+    # # Manually copy the generation config from the base model
+    # model.generation_config = GenerationConfig.from_model_config(base_model.config)
 
     ppo_config = PPOConfig(
         model_name=model_name,
-        log_with="wandb",
-        # kl_penaly may not be required
-        kl_penalty="full",
-        steps=10000,
+        # num_ppo_epochs=4,  # Sets num ppo updates per batch
         # Change learning rate
         learning_rate=1e-6,
         target_kl=0.1,
         init_kl_coef=0.1,
-        batch_size=100,
-        mini_batch_size=25,  # Set mini_batch_size
+        steps=10000,
+        # kl_coef=0.1,
+        batch_size=64,
+        mini_batch_size=8,  # Set mini_batch_size
         gradient_accumulation_steps=4,  # Set gradient_accumulation_steps
+        # output_dir="ppo_output",
+        # log_with="wandb",
     )
 
     # Ensure correct padding and formatting during training
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
+    data_collator_ob = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
+
+    def custom_data_collator(features):
+        # Extract tokenized fields for padding
+        tokenized_samples = [
+            {k: v for k, v in f.items() if k in ["input_ids", "attention_mask"]}
+            for f in features
+        ]
+
+        # Apply padding only on tokenized fields
+        batch = data_collator_ob(tokenized_samples)
+
+        # Keep the original queries inside the batch
+        batch["query"] = [f["query"] for f in features]  # Retain the query field
+
+        return batch
 
     ppo_trainer = PPOTrainer(
         config=ppo_config,
         model=model,
+        # ref_model=None,
+        # reward_model=None,
         tokenizer=tokenizer,
         dataset=train_dataset,
-        data_collator=data_collator,
+        # eval_dataset=None,
+        data_collator=custom_data_collator,
+        # dataloader_kwargs={"drop_last": False},
     )
 
     # It is recommended to use those parameters!
@@ -109,9 +146,12 @@ def seq_ppo(model_name):
     KL_scores = []
     avg_rewards = []
     num_epochs = 10  # Replace with the desired number of epochs
+
     for epoch in range(num_epochs):
         print(f"Epoch {epoch + 1}/{num_epochs}")
         for batch in tqdm(ppo_trainer.dataloader, desc=f"Epoch {epoch + 1}"):
+            batch0 = batch
+            print(batch0)
             query_tensors = batch["input_ids"].to(device)
 
             query_tensors_list = [query.to(device) for query in query_tensors]

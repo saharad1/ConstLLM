@@ -1,4 +1,6 @@
+import json
 import os
+from pathlib import Path
 
 import torch
 from tqdm import tqdm
@@ -40,24 +42,26 @@ def generate_output(input_text: str, tokenizer, model) -> str:
     return generated_text
 
 
-def create_codah_ppo_dataset(model, tokenizer) -> Dataset:
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
-    # model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    # tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
+def create_codah_ppo_dataset(
+    model=None, tokenizer=None, subset=10, offline=False
+) -> Dataset:
+    if offline:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+        tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
-    # model = AutoModelForCausalLM.from_pretrained(
-    #     model_name,
-    #     torch_dtype=torch.bfloat16,
-    #     device_map=device,
-    # )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.bfloat16,
+            device_map=device,
+        )
 
-    # # Ensure padding token exists
-    # if tokenizer.pad_token is None:
-    #     tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
-    #     model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
-    #     model.config.pad_token_id = tokenizer.pad_token_id
+        # Ensure padding token exists
+        if tokenizer.pad_token is None:
+            tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+            model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
+            model.config.pad_token_id = tokenizer.pad_token_id
 
-    subset = 10
     raw_dataset = load_dataset(path="jaredfern/codah", name="codah", split="all")
     prepared_dataset = PreparedCODAHDataset(raw_dataset, subset=subset)
     ppo_dataset = []
@@ -82,16 +86,30 @@ def create_codah_ppo_dataset(model, tokenizer) -> Dataset:
         ]
 
         # Append structured data to dataset
-        ppo_dataset.append({"query_conv": explanation_conv})
+        ppo_dataset.append({"query": explanation_conv})
         # explanation_prompt = custom_apply_chat_template(explanation_conv)
 
-    # Convert to Hugging Face Dataset
-    hf_dataset = Dataset.from_list(ppo_dataset)
+    return ppo_dataset
 
-    # Print dataset sample
-    print(hf_dataset[0])
-    return hf_dataset
+
+def save_ppo_dataset_jsonl(dataset, file_path="ppo_dataset.jsonl"):
+    with open(file_path, "w", encoding="utf-8") as f:
+        for entry in dataset:
+            json.dump(entry, f, ensure_ascii=False)
+            f.write("\n")  # Each JSON object is written on a new line
+    print(f"Dataset saved to {file_path} in JSONL format")
+
+
+def load_ppo_dataset_jsonl(file_path="ppo_dataset.jsonl"):
+    dataset = []
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            dataset.append(json.loads(line))
+    print(f"Dataset loaded from {file_path} in JSONL format")
+    return dataset
 
 
 if __name__ == "__main__":
-    create_codah_ppo_dataset()
+    ppo_dataset = create_codah_ppo_dataset(subset=None, offline=True)
+    ppo_dataset_path = Path("ppo_datasets") / "ppo_codah_dataset.jsonl"
+    save_ppo_dataset_jsonl(ppo_dataset, file_path=str(ppo_dataset_path))

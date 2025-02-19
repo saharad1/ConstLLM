@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from captum.attr._core.llm_attr import LLMAttributionResult
 
@@ -73,10 +73,10 @@ class ScenarioScores:
     scenario_id: int
     correct_label: str
     decision_prompt: str
-    decisions_outputs: List[str]
+    decision_output: str
     explanation_prompt: str
-    decision_attributions: List[Dict[str, float]]
-    explanation_attributions: List[Dict[str, float]]
+    decision_attributions: List[Tuple[str, float]]
+    explanation_attributions: List[List[Tuple[str, float]]]
     explanation_outputs: List[str]
     spearman_scores: List[float]
     explanation_best: ExplanationRanking
