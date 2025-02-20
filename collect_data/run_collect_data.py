@@ -10,11 +10,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from datasets import load_dataset
 from tqdm import tqdm
 
 import wandb
 from collect_data.comp_score import compute_kl_divergence, compute_spearman_score
+from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
 from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
@@ -229,8 +229,10 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # Initialize wandb
     wandb.init(
-        project=f"{dataset_name}-dataset",
+        project=f"ConstLLM_Collect_Data",
         name=run_name,
+        group=dataset_name,
+        tags=[attribution_method],
         config=config,
         mode="online" if wandb_mode else "disabled",
     )
