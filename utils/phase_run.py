@@ -14,6 +14,12 @@ class MethodParams:
                 "n_steps": n_steps,
             }
         },
+        AttributionMethod.SHAPLEY_VALUE_SAMPLING.name: lambda n_samples=50, perturbations_per_eval=50: {
+            AttributionMethod.SHAPLEY_VALUE_SAMPLING.name: {
+                "n_samples": n_samples,
+                "perturbations_per_eval": perturbations_per_eval,
+            }
+        },
     }
 
     @classmethod

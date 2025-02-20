@@ -10,11 +10,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from datasets import load_dataset
 from tqdm import tqdm
 
 import wandb
 from collect_data.comp_score import compute_kl_divergence, compute_spearman_score
-from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
 from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
@@ -183,6 +183,17 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
             AttributionMethod.LIG.name, n_steps=25
         )
         device = "auto"
+    elif attribution_method == AttributionMethod.SHAPLEY_VALUE_SAMPLING.name:
+        methods_params_decision = MethodParams.set_params(
+            AttributionMethod.SHAPLEY_VALUE_SAMPLING.name,
+            n_samples=25,
+            perturbations_per_eval=25,
+        )
+        methods_params_explanation = MethodParams.set_params(
+            AttributionMethod.SHAPLEY_VALUE_SAMPLING.name,
+            n_samples=25,
+            perturbations_per_eval=25,
+        )
     else:
         raise ValueError(f"Invalid attribution method: {attribution_method}")
 
