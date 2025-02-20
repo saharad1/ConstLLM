@@ -10,11 +10,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from datasets import load_dataset
 from tqdm import tqdm
 
 import wandb
 from collect_data.comp_score import compute_kl_divergence, compute_spearman_score
-from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
 from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
@@ -156,10 +156,10 @@ def process_scenario(
 def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
-    dataset_name = "choice75"  # Set to "codah" or "choice75"
+    dataset_name = "codah"  # Set to "codah" or "choice75"
     num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
-    attribution_method = AttributionMethod.LIME.name
+    attribution_method = AttributionMethod.SHAPLEY_VALUE_SAMPLING.name
     device = "cuda"
 
     assert dataset_name in [
@@ -194,6 +194,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
             n_samples=25,
             perturbations_per_eval=25,
         )
+        device = "auto"
     else:
         raise ValueError(f"Invalid attribution method: {attribution_method}")
 
