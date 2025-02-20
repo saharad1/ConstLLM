@@ -13,50 +13,23 @@ import torch
 from tqdm import tqdm
 
 import wandb
+from collect_data.comp_score import compute_kl_divergence, compute_spearman_score
 from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
-from pipeline_dpo.comp_score import compute_kl_divergence, compute_spearman_score
 from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
 from prepare_datasets.prepare_codah import PreparedCODAHDataset
 from utils.custom_chat_template import custom_apply_chat_template
-from utils.data_models import (
-    ExplanationRanking,
-    ScenarioResult,
-    ScenarioScores,
-    ScenarioSummary,
-)
+from utils.data_models import ExplanationRanking, ScenarioScores
 from utils.general import print_gpu_info
+from utils.phase_run import MethodParams, run_phase
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 print_gpu_info()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-class MethodParams:
-    _METHOD_PARAMS_FUNCTIONS = {
-        AttributionMethod.LIME.name: lambda n_samples=500, perturbations_per_eval=250: {
-            AttributionMethod.LIME.name: {
-                "n_samples": n_samples,
-                "perturbations_per_eval": perturbations_per_eval,
-            }
-        },
-        AttributionMethod.LIG.name: lambda n_steps=50: {
-            AttributionMethod.LIG.name: {
-                "n_steps": n_steps,
-            }
-        },
-    }
-
-    @classmethod
-    def set_params(cls, method_name: str, **kwargs):
-        """Sets the parameters for a specific attribution method."""
-        if method_name not in cls._METHOD_PARAMS_FUNCTIONS:
-            raise ValueError(f"Invalid method name: {method_name}")
-        return cls._METHOD_PARAMS_FUNCTIONS[method_name](**kwargs)
 
 
 def extract_choice(output: str) -> str:
@@ -90,18 +63,6 @@ def load_and_prepare_dataset(dataset_name, subset=20):
         raise ValueError(f"Invalid dataset name: {dataset_name}")
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
     return prepared_dataset
-
-
-# Generalized phase function
-def run_phase(llm_analyzer, prompt, methods_params, phase="decision"):
-    logger.info(f"Running {phase} phase...")
-    output = llm_analyzer.generate_output(prompt)
-    result = llm_analyzer.analyze(
-        input_text=prompt, target=output, method_params=methods_params
-    )
-    if not result:
-        raise ValueError(f"{phase.capitalize()} phase returned invalid results")
-    return output, result
 
 
 # Process individual scenario
@@ -195,10 +156,10 @@ def process_scenario(
 def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
-    dataset_name = "codah"  # Set to "codah" or "choice75"
+    dataset_name = "choice75"  # Set to "codah" or "choice75"
     num_dec_exp = 5
-    subset = 100  # Set to None to process the entire dataset
-    attribution_method = AttributionMethod.LIG.name
+    subset = None  # Set to None to process the entire dataset
+    attribution_method = AttributionMethod.LIME.name
     device = "cuda"
 
     assert dataset_name in [
@@ -209,17 +170,17 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     # Set parameters using a single function call per method
     if attribution_method == AttributionMethod.LIME.name:
         methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
+            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=250
         )
         methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
+            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=250
         )
     elif attribution_method == AttributionMethod.LIG.name:
         methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=30
+            AttributionMethod.LIG.name, n_steps=25
         )
         methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=30
+            AttributionMethod.LIG.name, n_steps=25
         )
         device = "auto"
     else:

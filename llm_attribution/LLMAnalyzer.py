@@ -26,19 +26,23 @@ from utils.ModelTokenizerBundle import ModelTokenizerBundle
 class LLMAnalyzer:
     def __init__(
         self,
-        model_id: str,
+        model_id: Union[str, Any],
+        tokenizer: Any = None,
         device: str = "cuda",
         extra_skip_tokens: list[str] = None,
         only_structure_tokens: bool = True,
     ):
-        # Load the tokenizer and model directly
-        use_quantization = True
-        model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(
-            model_id=model_id, use_quantization=use_quantization, device=device
-        )
-        self.tokenizer = model_bundle.tokenizer
-        self.model = model_bundle.model
-        self.model.eval()
+        if isinstance(model_id, str):
+            # Load the tokenizer and model directly
+            model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(
+                model_id=model_id, use_quantization=True, device=device
+            )
+            self.tokenizer = model_bundle.tokenizer
+            self.model = model_bundle.model
+            self.model.eval()
+        else:
+            self.model = model_id
+            self.tokenizer = tokenizer
 
         self.skip_tokens_dict = get_skip_tokens(
             tokenizer=self.tokenizer,
@@ -191,6 +195,7 @@ class LLMAnalyzer:
         return gradient_attributor.attribute(
             inp=interpretable_input,
             target=target,
+            method="gausslegendre",
             **params,  # Pass additional params (e.g., n_steps, baselines)
         )
 

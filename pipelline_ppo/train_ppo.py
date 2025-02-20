@@ -26,7 +26,7 @@ from pipelline_ppo.ppo_dataset_codah import (
 from utils.custom_chat_template import custom_apply_chat_template
 from utils.general import print_gpu_info
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 print_gpu_info()
 
 
@@ -51,19 +51,18 @@ def seq_ppo(model_name):
 
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+        # base_model.config.pad_token_id = tokenizer.pad_token_id
         base_model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
-        base_model.config.pad_token_id = tokenizer.pad_token_id
+        # TODO: Check if using the eos token is necessary
+        tokenizer.pad_token = tokenizer.eos_token
 
     def tokenize(sample):
-        tokens = tokenizer(
-            custom_apply_chat_template(sample["query"]), padding=True, truncation=True
-        )
+        tokens = tokenizer(custom_apply_chat_template(sample["query"]))
 
         # Preserve raw text in "raw_data" while adding tokenized fields
         return {
             "input_ids": tokens["input_ids"],
             "attention_mask": tokens["attention_mask"],
-            # "raw_data": sample["query"],  # Keep original query for reward function
         }
 
     # dataset = create_codah_ppo_dataset(base_model, tokenizer, subset=10)
@@ -82,6 +81,7 @@ def seq_ppo(model_name):
     model = AutoModelForCausalLMWithValueHead.from_pretrained(model_name)
     # # Manually copy the generation config from the base model
     # model.generation_config = GenerationConfig.from_model_config(base_model.config)
+    wandb_mode = False
 
     ppo_config = PPOConfig(
         model_name=model_name,
@@ -96,7 +96,7 @@ def seq_ppo(model_name):
         mini_batch_size=8,  # Set mini_batch_size
         gradient_accumulation_steps=4,  # Set gradient_accumulation_steps
         # output_dir="ppo_output",
-        # log_with="wandb",
+        log_with="wandb" if wandb_mode else None,
     )
 
     # Ensure correct padding and formatting during training
@@ -112,8 +112,17 @@ def seq_ppo(model_name):
         # Apply padding only on tokenized fields
         batch = data_collator_ob(tokenized_samples)
 
-        # Keep the original queries inside the batch
-        batch["query"] = [f["query"] for f in features]  # Retain the query field
+        # # Keep the original queries inside the batch
+        # batch["query"] = [f["query"] for f in features]  # Retain the query field
+
+        # Store non-tensor fields separately to prevent DataLoader from dropping them
+        batch = {
+            "input_ids": batch["input_ids"],
+            "attention_mask": batch["attention_mask"],
+            "query": [
+                f["query"] for f in features
+            ],  # Keep queries as a list of strings
+        }
 
         return batch
 
@@ -138,20 +147,22 @@ def seq_ppo(model_name):
         "do_sample": True,  # yes, we want to sample
         "pad_token_id": tokenizer.pad_token_id,
         # most decoder models don't have a padding token - use EOS token instead
-        "max_new_tokens": 100,  # specify how many tokens you want to generate at most
+        "max_new_tokens": 200,  # specify how many tokens you want to generate at most
     }
+
+    # TODO: Think of whether to use the LLMAnalyzer (online PPO or not)
+    llm_analyzer = LLMAnalyzer(model_id=model, tokenizer=tokenizer, device="cuda")
+    print(llm_analyzer)
 
     mean_scores = []
     std_scores = []
     KL_scores = []
     avg_rewards = []
-    num_epochs = 10  # Replace with the desired number of epochs
+    num_epochs = 1  # Replace with the desired number of epochs
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch + 1}/{num_epochs}")
         for batch in tqdm(ppo_trainer.dataloader, desc=f"Epoch {epoch + 1}"):
-            batch0 = batch
-            print(batch0)
             query_tensors = batch["input_ids"].to(device)
 
             query_tensors_list = [query.to(device) for query in query_tensors]
@@ -205,7 +216,7 @@ def seq_ppo(model_name):
 
             print("\nThe mean scores so far {}".format(mean_scores))
             print("\nThe STD scores so far {}".format(std_scores))
-            # KL scores must be positive and as small as possible!!
+            # KL scores must be positive and as small as possible!
             print("\nThe KL scores so far {}".format(KL_scores))
 
     ppo_trainer.save_pretrained("my_ppo_model")
