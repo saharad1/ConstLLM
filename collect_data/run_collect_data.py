@@ -25,7 +25,7 @@ from utils.data_models import ExplanationRanking, ScenarioScores
 from utils.general import print_gpu_info
 from utils.phase_run import MethodParams, run_phase
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 print_gpu_info()
 
 # Set up logging
@@ -78,7 +78,6 @@ def process_scenario(
     num_dec_exp,
 ):
     spearman_triplet = []
-    # decision_output = ""
     explanation_outputs = []
     spearman_scores = []
     current_method = next(iter(methods_params_decision))
@@ -160,10 +159,11 @@ def process_scenario(
 def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
-    dataset_name = "codah"  # Set to "codah" or "choice75"
+    wandb_mode = True
+    dataset_name = "ecqa"  # Set to "codah" or "choice75" or "ecqa"
     num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
-    attribution_method = AttributionMethod.LIME.name
+    attribution_method = AttributionMethod.FEATURE_ABLATION.name
     device = "cuda"
 
     assert dataset_name in [
@@ -200,6 +200,15 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
             perturbations_per_eval=25,
         )
         device = "auto"
+    elif attribution_method == AttributionMethod.FEATURE_ABLATION.name:
+        methods_params_decision = MethodParams.set_params(
+            AttributionMethod.FEATURE_ABLATION.name,
+            perturbations_per_eval=500,
+        )
+        methods_params_explanation = MethodParams.set_params(
+            AttributionMethod.FEATURE_ABLATION.name,
+            perturbations_per_eval=500,
+        )
     else:
         raise ValueError(f"Invalid attribution method: {attribution_method}")
 

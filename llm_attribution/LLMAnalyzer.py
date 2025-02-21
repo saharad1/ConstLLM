@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from captum.attr import (
+    FeatureAblation,
     KernelShap,
     LayerIntegratedGradients,
     Lime,
@@ -172,6 +173,22 @@ class LLMAnalyzer:
             **params,
         )
 
+    def analyze_feature_ablation(self, input_text: str, target: str, **params):
+        interpretable_input = self._prepare_input(input_text)
+        attribution_method = FeatureAblation(self.model)
+        # Check if 'baselines' is in params, and add it if missing
+        params.setdefault("baselines", self.tokenizer.pad_token_id)
+        ablation_attr = ExtendedLLMAttribution(
+            attr_method=attribution_method,
+            tokenizer=self.tokenizer,
+        )
+        return ablation_attr.attribute(
+            inp=interpretable_input,
+            target=target,
+            show_progress=True,
+            **params,
+        )
+
     def analyze_kernel_shap(self, input_text: str, target: str, **params):
         interpretable_input = self._prepare_input(input_text)
         attribution_method = KernelShap(self.model)
@@ -251,6 +268,10 @@ class LLMAnalyzer:
                     )
                 elif method == AttributionMethod.LIG.name:
                     results[method] = self.analyze_layer_integrated_gradients(
+                        input_text, target, **params
+                    )
+                elif method == AttributionMethod.FEATURE_ABLATION.name:
+                    results[method] = self.analyze_feature_ablation(
                         input_text, target, **params
                     )
                 elif method == AttributionMethod.KERNEL_SHAP.name:

@@ -20,6 +20,11 @@ class MethodParams:
                 "perturbations_per_eval": perturbations_per_eval,
             }
         },
+        AttributionMethod.FEATURE_ABLATION.name: lambda perturbations_per_eval=50: {
+            AttributionMethod.FEATURE_ABLATION.name: {
+                "perturbations_per_eval": perturbations_per_eval,
+            }
+        },
     }
 
     @classmethod
