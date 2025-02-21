@@ -156,7 +156,7 @@ def process_scenario(
 def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
-    dataset_name = "codah"  # Set to "codah" or "choice75"
+    dataset_name = "choice75"  # Set to "codah" or "choice75"
     num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
     attribution_method = AttributionMethod.SHAPLEY_VALUE_SAMPLING.name
