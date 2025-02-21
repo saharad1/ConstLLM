@@ -19,6 +19,7 @@ from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
 from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
 from prepare_datasets.prepare_codah import PreparedCODAHDataset
+from prepare_datasets.prepare_ecqa import PreparedECQADataset
 from utils.custom_chat_template import custom_apply_chat_template
 from utils.data_models import ExplanationRanking, ScenarioScores
 from utils.general import print_gpu_info
@@ -59,6 +60,9 @@ def load_and_prepare_dataset(dataset_name, subset=20):
         prepared_dataset = PreparedCODAHDataset(raw_dataset, subset=subset)
     elif dataset_name == "choice75":
         prepared_dataset = PreparedCHOICE75Dataset(subset=subset)
+    elif dataset_name == "ecqa":
+        raw_dataset = load_dataset(path="yangdong/ecqa", split="all")
+        prepared_dataset = PreparedECQADataset(raw_dataset, subset=subset)
     else:
         raise ValueError(f"Invalid dataset name: {dataset_name}")
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
@@ -156,24 +160,25 @@ def process_scenario(
 def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
-    dataset_name = "choice75"  # Set to "codah" or "choice75"
+    dataset_name = "codah"  # Set to "codah" or "choice75"
     num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
-    attribution_method = AttributionMethod.SHAPLEY_VALUE_SAMPLING.name
+    attribution_method = AttributionMethod.LIME.name
     device = "cuda"
 
     assert dataset_name in [
         "codah",
         "choice75",
+        "ecqa",
     ], f"Invalid dataset name: {dataset_name}"
 
     # Set parameters using a single function call per method
     if attribution_method == AttributionMethod.LIME.name:
         methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=250
+            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
         )
         methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=250
+            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
         )
     elif attribution_method == AttributionMethod.LIG.name:
         methods_params_decision = MethodParams.set_params(
@@ -300,4 +305,4 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
 if __name__ == "__main__":
     model_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    run_collect_d(model_id=model_id, wandb_mode=True)
+    run_collect_d(model_id=model_id, wandb_mode=False)
