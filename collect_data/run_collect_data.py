@@ -10,11 +10,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from datasets import load_dataset
 from tqdm import tqdm
 
 import wandb
 from collect_data.comp_score import compute_kl_divergence, compute_spearman_score
+from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
 from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
@@ -25,7 +25,7 @@ from utils.data_models import ExplanationRanking, ScenarioScores
 from utils.general import print_gpu_info
 from utils.phase_run import MethodParams, run_phase
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 print_gpu_info()
 
 # Set up logging
@@ -160,7 +160,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
     wandb_mode = True
-    dataset_name = "ecqa"  # Set to "codah" or "choice75" or "ecqa"
+    dataset_name = "choice75"  # Set to "codah" or "choice75" or "ecqa"
     num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
     attribution_method = AttributionMethod.FEATURE_ABLATION.name
