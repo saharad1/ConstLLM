@@ -1,21 +1,27 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, TextGenerationPipeline, pipeline
-from trl import PPOTrainer, PPOConfig, AutoModelForCausalLMWithValueHead
-from peft import get_peft_model, LoraConfig, TaskType
-import torch
-import pre
-from datasets import Dataset
-from tqdm import tqdm
-from transformers import DataCollatorWithPadding
-from torch.utils.data import DataLoader
 import pickle
 
+import pre
+import torch
+from peft import LoraConfig, TaskType, get_peft_model
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    TextGenerationPipeline,
+    pipeline,
+)
+from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
+
+from datasets import Dataset
 
 
 def seq_ppo(model_name, prompts, topic_model, relevant_topics):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dataset = Dataset.from_dict({"query": prompts})
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
+    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
     model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
     lora_config = LoraConfig(
@@ -26,11 +32,8 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
     )
 
     if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
-
-
-
 
     def tokenize(sample):
         tokens = tokenizer(sample["query"])
@@ -41,9 +44,7 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
 
     dataset = dataset.map(tokenize, batched=False, remove_columns=["query"])
 
-
     print(dataset)
-
 
     model = get_peft_model(model, lora_config).to(device)
 
@@ -52,7 +53,7 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
     ppo_config = PPOConfig(
         model_name=model_name,
         # kl_penaly may not be required
-        kl_penalty="full", 
+        kl_penalty="full",
         steps=10000,
         # Change learning rate
         learning_rate=1e-6,
@@ -63,7 +64,6 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
         gradient_accumulation_steps=4,  # Set gradient_accumulation_steps
     )
 
-
     # Ensure correct padding and formatting during training
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
 
@@ -72,14 +72,13 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
         model=model,
         tokenizer=tokenizer,
         dataset=dataset,
-        data_collator=data_collator
-
+        data_collator=data_collator,
     )
 
     # It is recommended to use those parameters!
     generation_kwargs = {
         "min_length": -1,  # don't ignore the EOS token (see above)
-        #"min_new_tokens": 32,
+        # "min_new_tokens": 32,
         "top_k": 0.0,  # no top-k sampling
         "top_p": 1.0,  # no nucleus sampling
         "do_sample": True,  # yes, we want to sample
@@ -88,7 +87,6 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
         "max_new_tokens": 32,  # specify how many tokens you want to generate at most
     }
 
-    
     mean_scores = []
     std_scores = []
     KL_scores = []
@@ -101,37 +99,47 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
 
             query_tensors_list = [query.to(device) for query in query_tensors]
 
-    
             # Generate responses for each query tensor
-            response_tensors = ppo_trainer.generate(query_tensors_list, ** generation_kwargs, return_prompt=False)
+            response_tensors = ppo_trainer.generate(
+                query_tensors_list, **generation_kwargs, return_prompt=False
+            )
 
-            response_tensors_list = [response.to(device) for response in response_tensors]
-
+            response_tensors_list = [
+                response.to(device) for response in response_tensors
+            ]
 
             # Decode both the query and the response, filtering out padding tokens
             decoded_queries = [
-                tokenizer.decode(q, skip_special_tokens=True).strip() for q in query_tensors_list
+                tokenizer.decode(q, skip_special_tokens=True).strip()
+                for q in query_tensors_list
             ]
 
             decoded_responses = [
-                tokenizer.decode(r, skip_special_tokens=True).strip() for r in response_tensors_list
+                tokenizer.decode(r, skip_special_tokens=True).strip()
+                for r in response_tensors_list
             ]
-
-
 
             # Compute rewards
             # Change here to my method
-            rewards = pre.compute_reward_seq(decoded_responses, topic_model, relevant_topics)
+            rewards = pre.compute_reward_seq(
+                decoded_responses, topic_model, relevant_topics
+            )
             avg_r = sum(rewards) / len(rewards)
             for i in range(5):
-                print("\n{}) {} --- {}".format(i + 1, decoded_queries[i], decoded_responses[i]))
+                print(
+                    "\n{}) {} --- {}".format(
+                        i + 1, decoded_queries[i], decoded_responses[i]
+                    )
+                )
 
-            rewards_tensor_list = [torch.tensor(r, dtype=torch.float32) for r in rewards]
-
-
+            rewards_tensor_list = [
+                torch.tensor(r, dtype=torch.float32) for r in rewards
+            ]
 
             # Run PPO step with KL control
-            stats = ppo_trainer.step(query_tensors_list, response_tensors_list, rewards_tensor_list)
+            stats = ppo_trainer.step(
+                query_tensors_list, response_tensors_list, rewards_tensor_list
+            )
 
             mean_scores.append(round(stats["ppo/mean_scores"], 3))
             std_scores.append(round(stats["ppo/std_scores"], 3))
@@ -142,12 +150,6 @@ def seq_ppo(model_name, prompts, topic_model, relevant_topics):
             # KL scores must be positive and as small as possible!!
             print("\nThe KL scores so far {}".format(KL_scores))
 
-
-
-
-
-
     ppo_trainer.save_pretrained("my_ppo_model")
-    with open("stats.pkl", 'wb') as f:
+    with open("stats.pkl", "wb") as f:
         pickle.dump([mean_scores, std_scores, KL_scores, avg_rewards], f)
-

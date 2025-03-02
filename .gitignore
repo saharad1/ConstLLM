@@ -9,3 +9,4 @@ dpo_datasets/
 __pycache__/
 unsloth_compiled_cache/
 ppo_datasets/
+show_logs/

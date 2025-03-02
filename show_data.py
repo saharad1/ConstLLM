@@ -1,8 +1,26 @@
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from collect_data.comp_score import compute_spearman_score
+
+LOG_DIR = Path("show_logs")
+LOG_DIR.mkdir(exist_ok=True)  # Ensure the log directory exists
+
+
+def setup_logger(file_path):
+    """Set up a log file based on the input file name."""
+    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+    log_file_name = f"log_{Path(file_path).stem}_{timestamp}.txt"
+    return LOG_DIR / log_file_name
+
+
+def log_message(message, log_file):
+    """Write a message to both console and log file."""
+    print(message)  # Print to console
+    with open(log_file, "a", encoding="utf-8") as file:
+        file.write(message + "\n")
 
 
 def load_jsonl(file_path):
@@ -11,22 +29,24 @@ def load_jsonl(file_path):
         return [json.loads(line) for line in file]
 
 
-def print_scenario(scenario):
-    """Print the scenario details in a nicely formatted way."""
-    print("=" * 80)
-    print(f"Scenario ID: {scenario['scenario_id']}")
-    print(f"Decision Prompt:\n{scenario['decision_prompt']}")
-    print(f"Model Decision: {scenario['decision_output']}")
-    print(f"Correct Label: {scenario['correct_label']}")
-    print(f"Explanation Prompt:\n{scenario['explanation_prompt']}")
-    print(f"Best Explanation: {scenario['explanation_best']['explanation_output']}")
-    print(
-        f"Best Explanation Score: {scenario['explanation_best']['spearman_score']:.3f}"
-    )
+def print_scenario(scenario, log_file, num_top_tokens=10):
+    """Print and log the scenario details."""
+    log_message("=" * 80, log_file)
+    log_message(f"Scenario ID: {scenario['scenario_id']}", log_file)
+    log_message(f"Decision Prompt:\n{scenario['decision_prompt']}", log_file)
+    log_message(f"Model Decision: {scenario['decision_output']}", log_file)
+    log_message(f"Correct Label: {scenario['correct_label']}", log_file)
+    log_message(f"Explanation Prompt:\n{scenario['explanation_prompt']}", log_file)
 
-    print("-" * 80)
-    print("Decision Attributions:")
-    print(scenario["decision_attributions"])
+    log_message("-" * 80, log_file)
+    log_message("Decision Attributions:", log_file)
+    log_message(str(scenario["decision_attributions"]), log_file)
+    best_exp_top_10_tokens = sorted(
+        scenario["decision_attributions"], key=lambda x: x[1], reverse=True
+    )[:num_top_tokens]
+    log_message("Top tokens with highest attributions:", log_file)
+    for token, attribution in best_exp_top_10_tokens:
+        log_message(f"{token}: {attribution}", log_file)
 
     spearman_scores_exp = []
     for idx, explanation_attribution in enumerate(scenario["explanation_attributions"]):
@@ -41,30 +61,45 @@ def print_scenario(scenario):
     best_explanation = max(spearman_scores_exp, key=lambda x: x[2])
     worst_explanation = min(spearman_scores_exp, key=lambda x: x[2])
 
-    print("-" * 80)
-    print("Explanation Attributions:")
-    print("Best Explanation:")
-    print(best_explanation[0])
-    print("Best Explanation Spearman: ", best_explanation[2])
-    print("Best Explanation Attributions:")
-    print(best_explanation[1])
+    log_message("-" * 80, log_file)
+    log_message("Best Explanation:", log_file)
+    log_message(str(best_explanation[0]), log_file)
+    log_message(f"Best Explanation Spearman: {best_explanation[2]:.3f}", log_file)
+    log_message("Best Explanation Attributions:", log_file)
+    log_message(str(best_explanation[1]), log_file)
 
-    print("-" * 80)
-    print("Worst Explanation:")
-    print(worst_explanation[0])
-    print("Worst Explanation Spearman: ", worst_explanation[2])
-    print("Worst Explanation Attributions:")
-    print(worst_explanation[1])
+    # Sort and log the top 10 tokens for best explanation
+    best_exp_top_10_tokens = sorted(
+        best_explanation[1], key=lambda x: x[1], reverse=True
+    )[:num_top_tokens]
+    log_message("Top tokens with highest attributions:", log_file)
+    for token, attribution in best_exp_top_10_tokens:
+        log_message(f"{token}: {attribution}", log_file)
 
-    print("=" * 80 + "\n")
+    log_message("-" * 80, log_file)
+    log_message("Worst Explanation:", log_file)
+    log_message(str(worst_explanation[0]), log_file)
+    log_message(f"Worst Explanation Spearman: {worst_explanation[2]:.3f}", log_file)
+    log_message("Worst Explanation Attributions:", log_file)
+    log_message(str(worst_explanation[1]), log_file)
+
+    # Sort and log the top 10 tokens for worst explanation
+    worst_exp_top_10_tokens = sorted(
+        worst_explanation[1], key=lambda x: x[1], reverse=True
+    )[:num_top_tokens]
+    log_message("Top tokens with highest attributions:", log_file)
+    for token, attribution in worst_exp_top_10_tokens:
+        log_message(f"{token}: {attribution}", log_file)
+
+    log_message("=" * 80 + "\n", log_file)
 
 
-def run_print_scenarios(file_path, subset=5):
+def run_print_scenarios(file_path, subset=15, num_top_tokens=15):
+    log_file = setup_logger(file_path)
     scenarios = load_jsonl(file_path)[:subset]
-    # print(type(scenarios))
-    # sys.exit()
+
     for scenario in scenarios:
-        print_scenario(scenario)
+        print_scenario(scenario, log_file, num_top_tokens)
 
 
 if __name__ == "__main__":

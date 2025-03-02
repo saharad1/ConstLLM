@@ -1,6 +1,6 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,9 +22,7 @@ from utils.general import print_gpu_info
 print_gpu_info()
 
 
-def train_dpo_seq(
-    model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_scores=False
-):
+def train_dpo_seq(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_scores=False):
     # Load the model and tokenizer
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_name,
@@ -56,11 +54,8 @@ def train_dpo_seq(
         model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
         model.config.pad_token_id = tokenizer.pad_token_id
 
-    dataset_path = (
-        Path("dpo_datasets")
-        / "cleaned_codah_dpo_datasets"
-        / "codah_250213_182318_LLama"
-    )
+    # Load the DPO dataset
+    dataset_path = Path("dpo_datasets") / "cleaned_codah_dpo_datasets" / "cleaned_codah_250219_165846_LIME"
     train_path = dataset_path / "train.jsonl"
     eval_path = dataset_path / "eval.jsonl"
     train_dataset = load_dpo_dataset(str(train_path), include_scores=include_scores)
@@ -70,19 +65,15 @@ def train_dpo_seq(
 
     # Generate a timestamped run name
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-    run_name = f"Exp-{timestamp}-LLama"
+    run_name = f"codah_{timestamp}_llama"
     print(f"Run name: {run_name}")
 
-    output_dir = (
-        Path("trained_models")
-        / "codah_models"
-        / "LLama-instruct-8b-unsloth-tuned"
-        / run_name
-    )
-    wandb_mode = False
+    output_dir = Path("trained_models") / "codah_models" / "LLama-instruct-8b" / run_name
+    wandb_mode = True
     wandb.init(
-        project="codah-train-dpo",
+        project="tune-llm-dpo",
         name=run_name,
+        tags=["codah", "llama"],
         mode="online" if wandb_mode else "disabled",
     )
 
