@@ -2,14 +2,17 @@ import json
 import os
 import random
 from pathlib import Path
+from typing import Any
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from datasets.dataset_dict import DatasetDict, IterableDatasetDict
+from datasets.iterable_dataset import IterableDataset
+from torch.utils.data import DataLoader
 
 from datasets import Dataset, load_dataset
 
 
-def load_dpo_dataset(file_path, include_scores=False):
+def load_dpo_dataset(file_path, include_scores=False) -> Dataset | DatasetDict | IterableDataset | IterableDatasetDict:
     """
     Efficiently loads a JSONL dataset into a Hugging Face Dataset format for DPOTrainer.
     Uses `load_dataset` for direct streaming and minimal memory usage.
@@ -51,13 +54,16 @@ def load_dpo_dataset(file_path, include_scores=False):
         return dpo_entry
 
     # Load dataset efficiently (streaming mode)
-    dataset = load_dataset("json", data_files=file_path, split="train")
+    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset = load_dataset("json", data_files=file_path, split="train")
 
     # Apply processing function lazily
-    return dataset.map(process_example, remove_columns=dataset.column_names)
+    if isinstance(dataset, IterableDatasetDict):
+        return dataset.map(process_example)
+    else:
+        return dataset.map(process_example, remove_columns=list(dataset.column_names) if dataset.column_names else [])
 
 
-def preprocess_jsonl(input_path: Path, output_path: Path, include_scores=False):
+def preprocess_jsonl(input_path: Path, output_path: Path, include_scores=False) -> None:
     """
     Cleans the JSONL file to only keep fields required for DPO training.
     Removes unnecessary fields and ensures schema consistency.
@@ -86,7 +92,7 @@ def preprocess_jsonl(input_path: Path, output_path: Path, include_scores=False):
                     continue
 
                 # Construct cleaned entry
-                cleaned_entry = {
+                cleaned_entry: dict[str, Any] = {
                     "decision_prompt": item["decision_prompt"],
                     "explanation_prompt": item["explanation_prompt"],
                     "explanation_best": item["explanation_best"],
@@ -109,7 +115,7 @@ def preprocess_jsonl(input_path: Path, output_path: Path, include_scores=False):
             f.write(json.dumps(entry) + "\n")
 
 
-def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eval_ratio=0.2, test_ratio=0.1, seed=42):
+def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eval_ratio=0.2, test_ratio=0.1, seed=42) -> None:
     """
     Splits a JSONL file into train/eval/test sets based on given ratios.
     """
@@ -120,7 +126,7 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
 
     # Load all lines
     with open(input_path, "r") as f:
-        data = [json.loads(line) for line in f]
+        data: list[Any] = [json.loads(line) for line in f]
 
     # # Shuffle data for randomness
     # random.seed(seed)
@@ -132,12 +138,12 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
     eval_size = int(total * eval_ratio)
 
     # Split dataset
-    train_data = data[:train_size]
-    eval_data = data[train_size : train_size + eval_size]
-    test_data = data[train_size + eval_size :]
+    train_data: list[Any] = data[:train_size]
+    eval_data: list[Any] = data[train_size : train_size + eval_size]
+    test_data: list[Any] = data[train_size + eval_size :]
 
     # Save splits
-    def save_jsonl(data, path):
+    def save_jsonl(data, path) -> None:
         with open(path, "w") as f:
             for entry in data:
                 f.write(json.dumps(entry) + "\n")
@@ -161,11 +167,18 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
 
 # Example usage
 if __name__ == "__main__":
-    raw_dpo_dataset_path = Path("dpo_datasets") / "codah_dpo_datasets" / "codah_250219_165846_LIME.jsonl"
-    cleaned_dpo_dataset_path = (
-        Path("dpo_datasets") / "cleaned_codah_dpo_datasets" / "cleaned_codah_250219_165846_LIME" / "cleaned_codah_250219_165846_LIME.jsonl"
+    # raw_dpo_dataset_path = Path("dpo_datasets") / "codah_dpo_datasets" / "codah_250219_165846_LIME.jsonl"
+    # cleaned_dpo_dataset_path = (
+    #     Path("dpo_datasets") / "cleaned_codah_dpo_datasets" / "cleaned_codah_250219_165846_LIME" / "cleaned_codah_250219_165846_LIME.jsonl"
+    # )
+    # split_dpo_dataset = Path("dpo_datasets") / "cleaned_codah_dpo_datasets" / "cleaned_codah_250219_165846_LIME"
+
+    raw_dpo_dataset_path: Path = Path("dpo_datasets") / "ecqa_dpo_datasets" / "ecqa_250221_181714_LIME.jsonl"
+
+    cleaned_dpo_dataset_path: Path = (
+        Path("dpo_datasets") / "cleaned_ecqa_dpo_datasets" / "cleaned_ecqa_250221_181714_LIME" / "cleaned_ecqa_250221_181714_LIME.jsonl"
     )
-    split_dpo_dataset = Path("dpo_datasets") / "cleaned_codah_dpo_datasets" / "cleaned_codah_250219_165846_LIME"
+    split_dpo_dataset: Path = Path("dpo_datasets") / "cleaned_ecqa_dpo_datasets" / "cleaned_ecqa_250221_181714_LIME"
 
     # preprocess raw DPO dataset
     preprocess_jsonl(raw_dpo_dataset_path, cleaned_dpo_dataset_path, include_scores=False)
