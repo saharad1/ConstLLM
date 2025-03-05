@@ -207,12 +207,12 @@ def run_sweep(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_scores
         "parameters": {
             # "learning_rate": {"min": 1e-6, "max": 1e-5, "distribution": "log_uniform_values"},
             "learning_rate": {"values": [1e-6, 2e-6, 4e-6, 5e-6]},
-            "beta": {"values": [0.05, 0.1, 0.2]},
+            "beta": {"values": [0.05, 0.1, 0.15, 0.2]},
             "per_device_train_batch_size": {"values": [16, 32]},
             "gradient_accumulation_steps": {"values": [4, 8, 16]},
             "warmup_ratio": {"values": [0.0, 0.05, 0.1]},
             "weight_decay": {"min": 0.0, "max": 0.1, "distribution": "uniform"},
-            "num_train_epochs": {"values": [5, 10, 15]},
+            "num_train_epochs": {"values": [10, 15]},
             "lr_scheduler_type": {"values": ["cosine", "linear"]},
         },
     }
@@ -248,7 +248,7 @@ def run_sweep(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_scores
         wandb.finish()
 
     # Start the sweep
-    wandb.agent(sweep_id, function=sweep_train, count=4)  # count = Run x sweep iterations
+    wandb.agent(sweep_id, function=sweep_train, count=10)  # count = Run x sweep iterations
 
 
 if __name__ == "__main__":

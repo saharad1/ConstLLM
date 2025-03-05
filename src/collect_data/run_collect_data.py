@@ -82,16 +82,12 @@ def process_scenario(
     spearman_scores = []
     current_method = next(iter(methods_params_decision))
 
-    assert current_method == next(
-        iter(methods_params_explanation)
-    ), "Mismatched methods"
+    assert current_method == next(iter(methods_params_explanation)), "Mismatched methods"
 
     print(f"Current method: {current_method}")
 
     # Decision Phase
-    decision_prompt = custom_apply_chat_template(
-        [{"role": "user", "content": scenario_item.scenario_string}]
-    )
+    decision_prompt = custom_apply_chat_template([{"role": "user", "content": scenario_item.scenario_string}])
     decision_output, decision_result = run_phase(
         llm_analyzer=llm_analyzer,
         prompt=decision_prompt,
@@ -102,9 +98,7 @@ def process_scenario(
     decision_attributions = decision_result.methods_scores[current_method]
     explanation_attributions_list = []
     for i in range(num_dec_exp):
-        logger.info(
-            f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}..."
-        )
+        logger.info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
         # Explanation Phase
         explanation_prompt = custom_apply_chat_template(
             [
@@ -130,9 +124,7 @@ def process_scenario(
         )
         logger.info(f"Spearman Score for repetition {i+1}: {curr_spearman_score}")
         spearman_scores.append(curr_spearman_score)
-        spearman_triplet.append(
-            ExplanationRanking(decision_output, explanation_output, curr_spearman_score)
-        )
+        spearman_triplet.append(ExplanationRanking(decision_output, explanation_output, curr_spearman_score))
 
     # Best and worst explanations
     explanation_best = max(spearman_triplet, key=lambda x: x.spearman_score)
@@ -174,19 +166,11 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # Set parameters using a single function call per method
     if attribution_method == AttributionMethod.LIME.name:
-        methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
-        )
-        methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500
-        )
+        methods_params_decision = MethodParams.set_params(AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500)
+        methods_params_explanation = MethodParams.set_params(AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500)
     elif attribution_method == AttributionMethod.LIG.name:
-        methods_params_decision = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=25
-        )
-        methods_params_explanation = MethodParams.set_params(
-            AttributionMethod.LIG.name, n_steps=25
-        )
+        methods_params_decision = MethodParams.set_params(AttributionMethod.LIG.name, n_steps=25)
+        methods_params_explanation = MethodParams.set_params(AttributionMethod.LIG.name, n_steps=25)
         device = "auto"
     elif attribution_method == AttributionMethod.SHAPLEY_VALUE_SAMPLING.name:
         methods_params_decision = MethodParams.set_params(
@@ -215,9 +199,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     # Generate a timestamped run name
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
     run_name = f"{dataset_name}_{timestamp}_{attribution_method}"
-    jsonl_filename = (
-        Path("dpo_datasets") / f"{dataset_name}_dpo_datasets" / f"{run_name}.jsonl"
-    )
+    jsonl_filename = Path("dpo_datasets") / f"{dataset_name}_dpo_datasets" / f"{run_name}.jsonl"
     # Ensure directories exist
     if wandb_mode:
         jsonl_filename.parent.mkdir(parents=True, exist_ok=True)
@@ -238,9 +220,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     llm_analyzer = LLMAnalyzer(model_id=model_id, device=device)
 
     # Load and prepare dataset
-    prepared_dataset = load_and_prepare_dataset(
-        dataset_name=dataset_name, subset=subset
-    )
+    prepared_dataset = load_and_prepare_dataset(dataset_name=dataset_name, subset=subset)
 
     # Initialize wandb
     wandb.init(

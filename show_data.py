@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from collect_data.comp_score import compute_spearman_score
+from src.collect_data.comp_score import compute_spearman_score
 
 LOG_DIR = Path("show_logs")
 LOG_DIR.mkdir(exist_ok=True)  # Ensure the log directory exists
@@ -41,22 +41,16 @@ def print_scenario(scenario, log_file, num_top_tokens=10):
     log_message("-" * 80, log_file)
     log_message("Decision Attributions:", log_file)
     log_message(str(scenario["decision_attributions"]), log_file)
-    best_exp_top_10_tokens = sorted(
-        scenario["decision_attributions"], key=lambda x: x[1], reverse=True
-    )[:num_top_tokens]
+    best_exp_top_10_tokens = sorted(scenario["decision_attributions"], key=lambda x: x[1], reverse=True)[:num_top_tokens]
     log_message("Top tokens with highest attributions:", log_file)
     for token, attribution in best_exp_top_10_tokens:
         log_message(f"{token}: {attribution}", log_file)
 
     spearman_scores_exp = []
     for idx, explanation_attribution in enumerate(scenario["explanation_attributions"]):
-        spearman_score_temp = compute_spearman_score(
-            scenario["decision_attributions"], explanation_attribution
-        )
+        spearman_score_temp = compute_spearman_score(scenario["decision_attributions"], explanation_attribution)
         explanation_scenario = scenario["explanation_outputs"][idx]
-        spearman_scores_exp.append(
-            (explanation_scenario, explanation_attribution, spearman_score_temp)
-        )
+        spearman_scores_exp.append((explanation_scenario, explanation_attribution, spearman_score_temp))
 
     best_explanation = max(spearman_scores_exp, key=lambda x: x[2])
     worst_explanation = min(spearman_scores_exp, key=lambda x: x[2])
@@ -69,9 +63,7 @@ def print_scenario(scenario, log_file, num_top_tokens=10):
     log_message(str(best_explanation[1]), log_file)
 
     # Sort and log the top 10 tokens for best explanation
-    best_exp_top_10_tokens = sorted(
-        best_explanation[1], key=lambda x: x[1], reverse=True
-    )[:num_top_tokens]
+    best_exp_top_10_tokens = sorted(best_explanation[1], key=lambda x: x[1], reverse=True)[:num_top_tokens]
     log_message("Top tokens with highest attributions:", log_file)
     for token, attribution in best_exp_top_10_tokens:
         log_message(f"{token}: {attribution}", log_file)
@@ -84,9 +76,7 @@ def print_scenario(scenario, log_file, num_top_tokens=10):
     log_message(str(worst_explanation[1]), log_file)
 
     # Sort and log the top 10 tokens for worst explanation
-    worst_exp_top_10_tokens = sorted(
-        worst_explanation[1], key=lambda x: x[1], reverse=True
-    )[:num_top_tokens]
+    worst_exp_top_10_tokens = sorted(worst_explanation[1], key=lambda x: x[1], reverse=True)[:num_top_tokens]
     log_message("Top tokens with highest attributions:", log_file)
     for token, attribution in worst_exp_top_10_tokens:
         log_message(f"{token}: {attribution}", log_file)
