@@ -17,7 +17,7 @@ import wandb
 from datasets import Dataset
 
 # from datasets import load_dataset
-from pipeline_dpo.prepate_dataset_to_dpo import load_dpo_dataset
+from pipeline_dpo.prepare_dataset_to_dpo import load_dpo_dataset
 from utils.general import print_gpu_info
 
 print_gpu_info()

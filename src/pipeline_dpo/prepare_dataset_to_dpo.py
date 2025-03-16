@@ -99,3 +99,12 @@ def load_dpo_dataset(
 
     # Apply processing function
     return dataset.map(process_example, remove_columns=list(dataset.column_names) if dataset.column_names else [])
+
+
+if __name__ == "__main__":
+    # Test the dataset loading function
+    dataset_path = "dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/train.jsonl"
+    train_dataset = load_dpo_dataset(dataset_path, include_scores=True)
+    print(f"Number of samples: {len(train_dataset)}")
+    print(train_dataset.column_names)
+    print(train_dataset[0])  # Check the first sample

@@ -11,7 +11,7 @@ from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel, PatchDPOTrainer, is_bfloat16_supported
 
 import wandb
-from pipeline_dpo.prepate_dataset_to_dpo import load_dpo_dataset
+from pipeline_dpo.prepare_dataset_to_dpo import load_dpo_dataset
 from utils.general import print_gpu_info
 
 print_gpu_info()
@@ -230,12 +230,3 @@ if __name__ == "__main__":
         diff_threshold=0.1,
         sweep_count=10,
     )
-
-    # Or with Spearman correlation
-    # run_sweep(
-    #     model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
-    #     dataset_name="codah",
-    #     similarity_metric="spearman",
-    #     diff_threshold=0.2,
-    #     sweep_count=10
-    # )

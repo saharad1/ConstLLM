@@ -75,8 +75,7 @@ class ScenarioScores:
     explanation_attributions: List[List[Tuple[str, float]]]
     explanation_outputs: List[str]
     spearman_scores: List[float]
-    explanation_best: ExplanationRanking
-    explanation_worst: ExplanationRanking
+    cosine_scores: List[float]
 
 
 @dataclass

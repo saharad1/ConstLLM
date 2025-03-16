@@ -79,8 +79,8 @@ def process_scenario(
     methods_params_decision,
     methods_params_explanation,
     num_dec_exp,
-    similarity_metric="spearman",  # Add similarity_metric parameter with default "spearman"
-):
+    logger=None,
+) -> ScenarioScores:
     """
     Process a single scenario with the given analyzer, methods, and parameters.
 
@@ -90,20 +90,23 @@ def process_scenario(
         methods_params_decision: Parameters for the decision phase
         methods_params_explanation: Parameters for the explanation phase
         num_dec_exp: Number of explanation generations to try
-        similarity_metric: Which similarity metric to use ("spearman" or "cosine")
+        logger: Optional logger for tracking progress
 
     Returns:
         ScenarioScores object with the results
     """
-    similarity_triplet = []
+    # Logging function
+    log_info = logger.info if logger else print
+
+    # Prepare for tracking results
+    spearman_scores = []
+    cosine_scores = []
     explanation_outputs = []
-    similarity_scores = []
     current_method = next(iter(methods_params_decision))
 
     assert current_method == next(iter(methods_params_explanation)), "Mismatched methods"
 
-    print(f"Current method: {current_method}")
-    print(f"Using similarity metric: {similarity_metric}")
+    log_info(f"Current method: {current_method}")
 
     # Decision Phase
     decision_prompt = custom_apply_chat_template([{"role": "user", "content": scenario_item.scenario_string}])
@@ -116,8 +119,11 @@ def process_scenario(
 
     decision_attributions = decision_result.methods_scores[current_method]
     explanation_attributions_list = []
+
+    # Multiple explanation generation
     for i in range(num_dec_exp):
-        logger.info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
+        log_info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
+
         # Explanation Phase
         explanation_prompt = custom_apply_chat_template(
             [
@@ -132,32 +138,31 @@ def process_scenario(
             methods_params=methods_params_explanation,
             phase="explanation",
         )
+
         explanation_outputs.append(explanation_output)
         explanation_attributions = explanation_result.methods_scores[current_method]
         explanation_attributions_list.append(explanation_attributions)
 
-        # Compute similarity score based on the selected metric
-        if similarity_metric == "cosine":
-            curr_similarity_score = calculate_cosine_similarity(
-                decision_attributions=decision_attributions,
-                explanation_attributions=explanation_attributions,
-            )
-            score_name = "Cosine Similarity"
-        else:  # Default to Spearman
-            curr_similarity_score = calculate_spearman_correlation(
-                decision_attributions=decision_attributions,
-                explanation_attributions=explanation_attributions,
-            )
-            score_name = "Spearman Score"
+        # Compute Spearman correlation
+        curr_spearman_score = calculate_spearman_correlation(
+            decision_attributions=decision_attributions,
+            explanation_attributions=explanation_attributions,
+        )
 
-        logger.info(f"{score_name} for repetition {i+1}: {curr_similarity_score}")
-        similarity_scores.append(curr_similarity_score)
-        similarity_triplet.append(ExplanationRanking(decision_output, explanation_output, curr_similarity_score))
+        # Compute Cosine similarity
+        curr_cosine_score = calculate_cosine_similarity(
+            decision_attributions=decision_attributions,
+            explanation_attributions=explanation_attributions,
+        )
 
-    # Best and worst explanations based on the selected metric
-    explanation_best = max(similarity_triplet, key=lambda x: x.similarity_score)
-    explanation_worst = min(similarity_triplet, key=lambda x: x.similarity_score)
+        log_info(f"Spearman Score for repetition {i+1}: {curr_spearman_score}")
+        log_info(f"Cosine Score for repetition {i+1}: {curr_cosine_score}")
 
+        # Store results
+        spearman_scores.append(curr_spearman_score)
+        cosine_scores.append(curr_cosine_score)
+
+    # Create scenario results object
     scenario_result = ScenarioScores(
         scenario_id=scenario_item.scenario_id,
         correct_label=scenario_item.label,
@@ -167,12 +172,113 @@ def process_scenario(
         explanation_outputs=explanation_outputs,
         decision_attributions=decision_attributions,
         explanation_attributions=explanation_attributions_list,
-        spearman_scores=similarity_scores,  # Renamed from spearman_scores but keeping the same field
-        explanation_best=explanation_best,
-        explanation_worst=explanation_worst,
+        spearman_scores=spearman_scores,
+        cosine_scores=cosine_scores,
     )
 
     return scenario_result
+
+
+# def process_scenario(
+#     llm_analyzer,
+#     scenario_item,
+#     methods_params_decision,
+#     methods_params_explanation,
+#     num_dec_exp,
+#     similarity_metric="spearman",  # Add similarity_metric parameter with default "spearman"
+# ):
+#     """
+#     Process a single scenario with the given analyzer, methods, and parameters.
+
+#     Args:
+#         llm_analyzer: The LLM analyzer to use
+#         scenario_item: The scenario item to process
+#         methods_params_decision: Parameters for the decision phase
+#         methods_params_explanation: Parameters for the explanation phase
+#         num_dec_exp: Number of explanation generations to try
+#         similarity_metric: Which similarity metric to use ("spearman" or "cosine")
+
+#     Returns:
+#         ScenarioScores object with the results
+#     """
+#     similarity_triplet = []
+#     explanation_outputs = []
+#     similarity_scores = []
+#     current_method = next(iter(methods_params_decision))
+
+#     assert current_method == next(iter(methods_params_explanation)), "Mismatched methods"
+
+#     print(f"Current method: {current_method}")
+#     print(f"Using similarity metric: {similarity_metric}")
+
+#     # Decision Phase
+#     decision_prompt = custom_apply_chat_template([{"role": "user", "content": scenario_item.scenario_string}])
+#     decision_output, decision_result = run_phase(
+#         llm_analyzer=llm_analyzer,
+#         prompt=decision_prompt,
+#         methods_params=methods_params_decision,
+#         phase="decision",
+#     )
+
+#     decision_attributions = decision_result.methods_scores[current_method]
+#     explanation_attributions_list = []
+#     for i in range(num_dec_exp):
+#         logger.info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
+#         # Explanation Phase
+#         explanation_prompt = custom_apply_chat_template(
+#             [
+#                 {"role": "user", "content": scenario_item.scenario_string},
+#                 {"role": "assistant", "content": decision_output},
+#                 {"role": "user", "content": scenario_item.explanation_string},
+#             ]
+#         )
+#         explanation_output, explanation_result = run_phase(
+#             llm_analyzer=llm_analyzer,
+#             prompt=explanation_prompt,
+#             methods_params=methods_params_explanation,
+#             phase="explanation",
+#         )
+#         explanation_outputs.append(explanation_output)
+#         explanation_attributions = explanation_result.methods_scores[current_method]
+#         explanation_attributions_list.append(explanation_attributions)
+
+#         # Compute similarity score based on the selected metric
+#         if similarity_metric == "cosine":
+#             curr_similarity_score = calculate_cosine_similarity(
+#                 decision_attributions=decision_attributions,
+#                 explanation_attributions=explanation_attributions,
+#             )
+#             score_name = "Cosine Similarity"
+#         else:  # Default to Spearman
+#             curr_similarity_score = calculate_spearman_correlation(
+#                 decision_attributions=decision_attributions,
+#                 explanation_attributions=explanation_attributions,
+#             )
+#             score_name = "Spearman Score"
+
+#         logger.info(f"{score_name} for repetition {i+1}: {curr_similarity_score}")
+#         similarity_scores.append(curr_similarity_score)
+#         similarity_triplet.append(ExplanationRanking(decision_output, explanation_output, curr_similarity_score))
+
+#     # Best and worst explanations based on the selected metric
+#     explanation_best = max(similarity_triplet, key=lambda x: x.similarity_score)
+#     explanation_worst = min(similarity_triplet, key=lambda x: x.similarity_score)
+
+#     scenario_result = ScenarioScores(
+#         scenario_id=scenario_item.scenario_id,
+#         correct_label=scenario_item.label,
+#         decision_prompt=scenario_item.scenario_string,
+#         decision_output=decision_output,
+#         explanation_prompt=scenario_item.explanation_string,
+#         explanation_outputs=explanation_outputs,
+#         decision_attributions=decision_attributions,
+#         explanation_attributions=explanation_attributions_list,
+#         spearman_scores=similarity_scores,  # Renamed from spearman_scores but keeping the same field
+#         explanation_best=explanation_best,
+#         explanation_worst=explanation_worst,
+#     )
+
+#     return scenario_result
 
 
 # Main function
@@ -264,6 +370,8 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     success_sum = 0
     spearman_best_score_sum = 0
     spearman_worst_score_sum = 0
+    cosine_best_score_sum = 0
+    cosine_worst_score_sum = 0
     for iteration, scenario_item in tqdm(
         enumerate(prepared_dataset, 1),
         total=len(prepared_dataset),
@@ -289,37 +397,69 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
             continue
 
         # Compute key results
-        # Compute iteration time
-        iteration_time = time.time() - start_time  # End timing
+        # Compute iteration time and accuracy
+        iteration_time = time.time() - start_time
         correct_choice = extract_choice(scenario_res.correct_label)
         decision_choice = extract_choice(scenario_res.decision_output)
         success_sum += decision_choice == correct_choice
         accuracy_label = success_sum / iteration
 
         # spearman correlations
-        spearman_best_score = scenario_res.explanation_best.spearman_score
-        spearman_worst_score = scenario_res.explanation_worst.spearman_score
-        std_spearman = np.std(np.array(scenario_res.spearman_scores), ddof=1)
+        spearman_best_score = np.max(scenario_res.spearman_scores)
+        spearman_worst_score = np.min(scenario_res.spearman_scores)
         spearman_best_score_sum += spearman_best_score
         spearman_best_score_avg = spearman_best_score_sum / iteration
         spearman_worst_score_sum += spearman_worst_score
         spearman_worst_score_avg = spearman_worst_score_sum / iteration
 
-        # Log key results and iteration time for tracking progress in wandb
+        # cosine similarities
+        cosine_best_score = np.max(scenario_res.cosine_scores)
+        cosine_worst_score = np.min(scenario_res.cosine_scores)
+        cosine_best_score_sum += cosine_best_score
+        cosine_best_score_avg = cosine_best_score_sum / iteration
+        cosine_worst_score_sum += cosine_worst_score
+        cosine_worst_score_avg = cosine_worst_score_sum / iteration
+
+        # Log both Spearman and Cosine metrics in Wandb
         wandb.log(
             {
                 "iteration": iteration,
                 "accuracy": accuracy_label,
                 "spearman_best_score_avg": spearman_best_score_avg,
                 "spearman_worst_score_avg": spearman_worst_score_avg,
+                "cosine_best_score_avg": cosine_best_score_avg,
+                "cosine_worst_score_avg": cosine_worst_score_avg,
+                # Spearman Metrics
+                "scenario/spearman/mean": np.mean(scenario_res.spearman_scores),
+                "scenario/spearman/std": np.std(scenario_res.spearman_scores, ddof=1),
+                "scenario/spearman/best_score": spearman_best_score,
+                "scenario/spearman/worst_score": spearman_worst_score,
+                # Cosine Metrics
+                "scenario/cosine/mean": np.mean(scenario_res.cosine_scores),
+                "scenario/cosine/std": np.std(scenario_res.cosine_scores, ddof=1),
+                "scenario/cosine/best_score": cosine_best_score,
+                "scenario/cosine/worst_score": cosine_worst_score,
+                # Other existing metrics
                 "scenario/scenario_id": scenario_res.scenario_id,
-                "scenario/iteration_time_seconds": iteration_time,
-                "scenario/best_spearman_score": spearman_best_score,
-                "scenario/worst_spearman_score": spearman_worst_score,
-                "scenario/spearman_diff": spearman_best_score - spearman_worst_score,
-                "scenario/spearman_std": std_spearman,
+                "scenario/iteration_time_seconds": time.time() - start_time,
             }
         )
+
+        # Log key results and iteration time for tracking progress in wandb
+        # wandb.log(
+        #     {
+        #         "iteration": iteration,
+        #         "accuracy": accuracy_label,
+        #         "spearman_best_score_avg": spearman_best_score_avg,
+        #         "spearman_worst_score_avg": spearman_worst_score_avg,
+        #         "scenario/scenario_id": scenario_res.scenario_id,
+        #         "scenario/iteration_time_seconds": iteration_time,
+        #         "scenario/best_spearman_score": spearman_best_score,
+        #         "scenario/worst_spearman_score": spearman_worst_score,
+        #         "scenario/spearman_diff": spearman_best_score - spearman_worst_score,
+        #         "scenario/spearman_std": std_spearman,
+        #     }
+        # )
 
 
 if __name__ == "__main__":
