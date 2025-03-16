@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from src.collect_data.comp_score import compute_spearman_score
+from src.collect_data.comp_score import calculate_spearman_correlation
 
 LOG_DIR = Path("show_logs")
 LOG_DIR.mkdir(exist_ok=True)  # Ensure the log directory exists
@@ -48,7 +48,7 @@ def print_scenario(scenario, log_file, num_top_tokens=10):
 
     spearman_scores_exp = []
     for idx, explanation_attribution in enumerate(scenario["explanation_attributions"]):
-        spearman_score_temp = compute_spearman_score(scenario["decision_attributions"], explanation_attribution)
+        spearman_score_temp = calculate_spearman_correlation(scenario["decision_attributions"], explanation_attribution)
         explanation_scenario = scenario["explanation_outputs"][idx]
         spearman_scores_exp.append((explanation_scenario, explanation_attribution, spearman_score_temp))
 

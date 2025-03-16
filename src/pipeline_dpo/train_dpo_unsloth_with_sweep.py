@@ -11,112 +11,35 @@ from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel, PatchDPOTrainer, is_bfloat16_supported
 
 import wandb
-from pipeline_dpo.dpo_dataset_codah import load_dpo_dataset
+from pipeline_dpo.prepate_dataset_to_dpo import load_dpo_dataset
 from utils.general import print_gpu_info
 
 print_gpu_info()
 
 
-def train_dpo_seq(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_scores=False) -> None:
-    """Original training function with fixed hyperparameters."""
-    # Load the model and tokenizer
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=model_name,
-        dtype=torch.bfloat16,
-    )
-
-    model = FastLanguageModel.get_peft_model(
-        model=model,
-        r=64,
-        target_modules=[
-            "q_proj",
-            "k_proj",
-            "v_proj",
-            "o_proj",
-            "gate_proj",
-            "up_proj",
-            "down_proj",
-        ],
-        lora_alpha=64,
-        lora_dropout=0,
-        use_gradient_checkpointing="unsloth",
-    )
-
-    # Ensure padding token exists
-    if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
-        model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
-        model.config.pad_token_id = tokenizer.pad_token_id
-
-    # Load the DPO dataset
-    dataset_path = Path("dpo_datasets") / "cleaned_codah_dpo_datasets" / "cleaned_codah_250219_165846_LIME"
-    train_path = dataset_path / "train.jsonl"
-    eval_path = dataset_path / "eval.jsonl"
-    train_dataset = load_dpo_dataset(str(train_path), include_scores=include_scores)
-    eval_dataset = load_dpo_dataset(str(eval_path), include_scores=include_scores)
-    print(f"Number of train samples: {len(train_dataset)}")
-    print(f"Number of eval samples: {len(eval_dataset)}")
-
-    # Generate a timestamped run name
-    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-    run_name = f"codah_{timestamp}_llama"
-    print(f"Run name: {run_name}")
-
-    output_dir = Path("trained_models") / "codah_models" / "LLama-instruct-8b" / run_name
-    wandb_mode = True
-    wandb.init(
-        project="tune-llm-dpo",
-        name=run_name,
-        tags=["codah", "llama"],
-        mode="online" if wandb_mode else "disabled",
-    )
-
-    # DPO Training Config
-    training_args = DPOConfig(
-        output_dir=str(output_dir),
-        run_name=run_name,
-        report_to="wandb",
-        per_device_train_batch_size=32,  # Adjust based on available GPU memory
-        gradient_accumulation_steps=8,  # Simulates a larger batch size
-        num_train_epochs=10,
-        learning_rate=5e-6,  # Higher for LoRA
-        logging_steps=10,
-        save_strategy="epoch",
-        beta=0.1,  # Controls DPO optimization strength!
-        bf16=is_bfloat16_supported(),  # Enable bfloat16 training only when using A100 GPUs
-        fp16=not is_bfloat16_supported(),  # Enable FP16 training only when not using A100 GPUs
-        # Evaluation Config
-        eval_strategy="epoch",
-        # eval_steps=20,
-    )
-
-    PatchDPOTrainer()
-    # Initialize DPO Trainer
-    trainer = DPOTrainer(
-        model=model,  # Fine-tuned model
-        ref_model=None,  # No ref_model for LoRA
-        args=training_args,
-        train_dataset=train_dataset,
-        processing_class=tokenizer,
-        eval_dataset=eval_dataset,  # No evaluation dataset
-    )
-
-    # Start training
-    print("🚀 Starting DPO training with LoRA...")
-    trainer.train()
-    print("✅ Training completed.")
-
-    # Save the model
-    save_path = output_dir / "final-model"
-    trainer.save_model(str(save_path))
-    print(f"✅ Model saved to {save_path}")
-
-
 def train_dpo_with_config(
-    config, model_name: str, dataset_path: Path, run_name: str, dataset_name: str, include_scores=False
+    config,
+    model_name: str,
+    dataset_path: Path,
+    run_name: str,
+    dataset_name: str,
+    similarity_metric: str,
+    diff_threshold: float = 0,
+    include_scores=False,
 ) -> DPOTrainer:
     """Run a single DPO training with the given config parameters."""
 
+    # Log the fixed parameters to WandB:
+    wandb.config.update(
+        {
+            "similarity_metric": similarity_metric,
+            "diff_threshold": diff_threshold,
+            "dataset": dataset_name,
+            "model": model_name,
+        },
+        allow_val_change=True,
+    )
+
     # Load the model and tokenizer
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_name,
@@ -125,9 +48,9 @@ def train_dpo_with_config(
 
     model = FastLanguageModel.get_peft_model(
         model=model,
-        r=64,
+        r=16,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        lora_alpha=64,
+        lora_alpha=32,
         lora_dropout=0,
         bias="none",
         use_gradient_checkpointing="unsloth",
@@ -139,11 +62,15 @@ def train_dpo_with_config(
         model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
         model.config.pad_token_id = tokenizer.pad_token_id
 
-    # Load the DPO dataset
+    # Load the DPO dataset with the specified similarity metric and threshold
     train_path = dataset_path / "train.jsonl"
     eval_path = dataset_path / "eval.jsonl"
-    train_dataset = load_dpo_dataset(str(train_path), include_scores=include_scores)
-    eval_dataset = load_dpo_dataset(str(eval_path), include_scores=include_scores)
+    train_dataset = load_dpo_dataset(
+        file_path=str(train_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold, include_scores=include_scores
+    )
+    eval_dataset = load_dpo_dataset(
+        file_path=str(eval_path), similarity_metric=similarity_metric, diff_threshold=None, include_scores=include_scores
+    )
     print(f"Number of train samples: {len(train_dataset)}")
     print(f"Number of eval samples: {len(eval_dataset)}")
 
@@ -170,7 +97,7 @@ def train_dpo_with_config(
         weight_decay=config.weight_decay,
         eval_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="rewards/margins",
+        metric_for_best_model="eval/rewards/margins",
         greater_is_better=True,
     )
 
@@ -186,7 +113,7 @@ def train_dpo_with_config(
     )
 
     # Start training
-    print("🚀 Starting DPO training with LoRA...")
+    print(f"🚀 Starting DPO training with {similarity_metric} similarity (diff threshold: {diff_threshold})...")
     trainer.train()
     print("✅ Training completed.")
 
@@ -198,49 +125,84 @@ def train_dpo_with_config(
     return trainer
 
 
-def run_sweep(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_scores=False):
-    """Run a hyperparameter sweep using wandb."""
+def run_sweep(
+    dataset_path: Path,
+    model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    include_scores=False,
+    dataset_name="codah",  # ecqa or codah
+    similarity_metric="spearman",  # "spearman" or "cosine"
+    diff_threshold=0.1,
+    sweep_count=10,
+):
+    """
+    Run a hyperparameter sweep using wandb.
+
+    Args:
+        model_name: Name of the model to use
+        include_scores: Whether to include scores in the training data
+        dataset_name: Name of the dataset (codah, ecqa)
+        similarity_metric: Which similarity metric to use (spearman, cosine)
+        diff_threshold: Threshold for filtering examples based on score difference
+        sweep_count: Number of sweeps to run
+    """
     # Define sweep configuration
     sweep_config = {
         "method": "bayes",  # Bayesian optimization
         "metric": {"name": "eval/rewards/margins", "goal": "maximize"},
         "parameters": {
-            # "learning_rate": {"min": 1e-6, "max": 1e-5, "distribution": "log_uniform_values"},
-            "learning_rate": {"values": [1e-6, 2e-6, 4e-6, 5e-6]},
-            "beta": {"values": [0.05, 0.1, 0.15, 0.2]},
-            "per_device_train_batch_size": {"values": [16, 32]},
-            "gradient_accumulation_steps": {"values": [4, 8, 16]},
+            "learning_rate": {"min": 1e-6, "max": 1e-5, "distribution": "log_uniform"},
+            # "learning_rate": {"values": [1e-6, 2e-6, 4e-6, 5e-6]},
+            "beta": {"min": 0.05, "max": 0.2, "distribution": "uniform"},
+            "per_device_train_batch_size": {"values": [32]},
+            "gradient_accumulation_steps": {"values": [16]},
             "warmup_ratio": {"values": [0.0, 0.05, 0.1]},
             "weight_decay": {"min": 0.0, "max": 0.1, "distribution": "uniform"},
-            "num_train_epochs": {"values": [10, 15]},
+            "num_train_epochs": {"values": [20]},
             "lr_scheduler_type": {"values": ["cosine", "linear"]},
         },
     }
+    # Create a unique sweep project name that includes both dataset and similarity metric
+    sweep_project = f"dpo-{dataset_name}-{similarity_metric}-sweep"
 
-    # Set dataset
-    dataset_name = "codah"  # ecqa or codah
-    # Define the dataset path
-    dataset_path = Path("dpo_datasets/cleaned_codah_dpo_datasets/cleaned_codah_250219_165846_LIME")
+    # Include fixed parameters in the sweep name
+    sweep_config_name = f"{similarity_metric}-diff{diff_threshold}"
 
-    sweep_id = wandb.sweep(sweep=sweep_config, project=f"dpo-{dataset_name}-sweep")
+    # Initialize the sweep with WandB
+    sweep_id = wandb.sweep(sweep=sweep_config, project=sweep_project, name=sweep_config_name)
 
-    # Define the sweep training function
+    # Define the sweep training function with fixed parameters captured in closure
     def sweep_train():
+        """Inner function that runs a single training with sweep parameters."""
         # Initialize a new wandb run
         timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-        run_name = f"{dataset_name}_{timestamp}_sweep_{sweep_id}"
+        run_name = f"{dataset_name}_{similarity_metric}_{timestamp}"
+
+        # Start a new wandb run with fixed parameters logged
         run = wandb.init(name=run_name)
+
+        # Log fixed parameters explicitly so they appear in the WandB dashboard
+        wandb.config.update(
+            {
+                "similarity_metric": similarity_metric,
+                "diff_threshold": diff_threshold,
+                "dataset": dataset_name,
+                "model": model_name,
+            },
+            allow_val_change=True,
+        )
 
         # Get the hyperparameters from wandb
         config = wandb.config
 
-        # Run training with these hyperparameters
+        # Run training with these hyperparameters and fixed parameters
         train_dpo_with_config(
             config=config,
             model_name=model_name,
             dataset_path=dataset_path,
-            run_name=dataset_name,
+            run_name=run_name,  # Use the timestamp run name
             dataset_name=dataset_name,
+            similarity_metric=similarity_metric,
+            diff_threshold=diff_threshold,
             include_scores=include_scores,
         )
 
@@ -248,19 +210,32 @@ def run_sweep(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_scores
         wandb.finish()
 
     # Start the sweep
-    wandb.agent(sweep_id, function=sweep_train, count=10)  # count = Run x sweep iterations
+    print(f"Starting sweep with {sweep_count} runs:")
+    print(f"\tDataset: {dataset_name}")
+    print(f"\tSimilarity metric: {similarity_metric}")
+    print(f"\tDifference threshold: {diff_threshold}")
+
+    wandb.agent(sweep_id, function=sweep_train, count=sweep_count)
 
 
+# Example usage in if __name__ == "__main__":
 if __name__ == "__main__":
-    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    # model_name = "unsloth/Meta-Llama-3.1-8B-Instruct"
+    dataset_path = Path(f"dpo_datasets/ecqa_dpo_datasets/ecqa_250221_181714_LIME.jsonl")
+    # Example: Run sweep with cosine similarity
+    run_sweep(
+        dataset_path=dataset_path,
+        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        dataset_name="ecqa",
+        similarity_metric="spearman",
+        diff_threshold=0.1,
+        sweep_count=10,
+    )
 
-    # Choose which mode to run:
-    mode = "sweep"  # "train" or "sweep"
-
-    if mode == "train":
-        train_dpo_seq(model_name=model_name, include_scores=False)
-    elif mode == "sweep":
-        run_sweep(model_name=model_name, include_scores=False)
-    else:
-        print(f"Unknown mode: {mode}. Use 'train' or 'sweep'")
+    # Or with Spearman correlation
+    # run_sweep(
+    #     model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    #     dataset_name="codah",
+    #     similarity_metric="spearman",
+    #     diff_threshold=0.2,
+    #     sweep_count=10
+    # )

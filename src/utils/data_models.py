@@ -27,12 +27,8 @@ class ScenarioSummary:
     decision_scores: Dict[str, float]  # Scores for each method in the decision phase
     explanation_prompt: str  # Details of the explanation phase
     explanation_output: str  # Prompt input for the explanation phase
-    explanation_scores: Dict[
-        str, float
-    ]  # Scores for each method in the explanation phase
-    extra_info: Dict[str, Any] = field(
-        default_factory=dict
-    )  # Flexible field for extra dataset-specific information
+    explanation_scores: Dict[str, float]  # Scores for each method in the explanation phase
+    extra_info: Dict[str, Any] = field(default_factory=dict)  # Flexible field for extra dataset-specific information
 
     def print_results(self):
         """
@@ -60,7 +56,7 @@ class ScenarioSummary:
 class ExplanationRanking:
     decision_output: str
     explanation_output: str
-    spearman_score: float
+    similarity_score: float
 
 
 @dataclass

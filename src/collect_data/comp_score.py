@@ -1,26 +1,30 @@
 from typing import Any, List, Tuple, Union
 
 import numpy as np
+from scipy.spatial.distance import cosine
 from scipy.special import rel_entr
 from scipy.stats import entropy, spearmanr
 
 
-def compute_spearman_score(
+def calculate_spearman_correlation(
     decision_attributions: List[Tuple[str, float]],
     explanation_attributions: List[Tuple[str, float]],
 ):
-    return _calculate_spearman(decision_attributions, explanation_attributions)[
-        "correlation"
-    ]
+    return _calculate_spearman(decision_attributions, explanation_attributions)["correlation"]
+
+
+def calculate_cosine_similarity(
+    decision_attributions: List[Tuple[str, float]],
+    explanation_attributions: List[Tuple[str, float]],
+):
+    return _calculate_cosine_similarity(decision_attributions, explanation_attributions)["cosine_similarity"]
 
 
 def compute_kl_divergence(
     decision_attributions: List[Tuple[str, float]],
     explanation_attributions: List[Tuple[str, float]],
 ):
-    return _calculate_kl_divergence(decision_attributions, explanation_attributions)[
-        "kl_divergence"
-    ]
+    return _calculate_kl_divergence(decision_attributions, explanation_attributions)["kl_divergence"]
 
 
 def _align_tokens(
@@ -64,28 +68,51 @@ def _calculate_spearman(
     Returns:
         A dictionary containing the Spearman correlation coefficient and p-value.
     """
-    aligned_decision_scores, aligned_explanation_scores = _align_tokens(
-        decision_scores, explanation_scores
-    )
+    aligned_decision_scores, aligned_explanation_scores = _align_tokens(decision_scores, explanation_scores)
     if len(aligned_decision_scores) == len(aligned_explanation_scores):
-        correlation, p_value = spearmanr(
-            aligned_decision_scores, aligned_explanation_scores
-        )
+        correlation, p_value = spearmanr(aligned_decision_scores, aligned_explanation_scores)
         return {"correlation": correlation, "p_value": p_value}
     return {"correlation": None, "p_value": None}
 
 
-import numpy as np
-from scipy.stats import entropy
+def _calculate_cosine_similarity(
+    decision_scores: List[Tuple[str, float]],
+    explanation_scores: List[Tuple[str, float]],
+) -> Union[dict[str, Union[float, Any]], dict[str, None]]:
+    """
+    Calculate cosine similarity after aligning tokens.
+
+    Cosine similarity values range from -1 (completely opposite) to 1 (identical),
+    with 0 indicating orthogonality (no similarity).
+
+    Args:
+        decision_scores: List of (token, score) tuples for decision.
+        explanation_scores: List of (token, score) tuples for explanation.
+
+    Returns:
+        A dictionary containing the cosine similarity.
+    """
+    aligned_decision_scores, aligned_explanation_scores = _align_tokens(decision_scores, explanation_scores)
+
+    if len(aligned_decision_scores) == len(aligned_explanation_scores) and len(aligned_decision_scores) > 0:
+        # Convert lists to numpy arrays
+        decision_array = np.array(aligned_decision_scores, dtype=np.float64)
+        explanation_array = np.array(aligned_explanation_scores, dtype=np.float64)
+
+        # Calculate cosine similarity (1 - cosine distance)
+        # scipy.spatial.distance.cosine returns the cosine distance, not similarity
+        cosine_sim = 1 - cosine(decision_array, explanation_array)
+
+        return {"cosine_similarity": cosine_sim}
+
+    return {"cosine_similarity": None}
 
 
 def _calculate_kl_divergence(
     decision_attributions: List[Tuple[str, float]],
     explanation_attributions: List[Tuple[str, float]],
 ):
-    decision_scores, explanation_scores = _align_tokens(
-        decision_attributions, explanation_attributions
-    )
+    decision_scores, explanation_scores = _align_tokens(decision_attributions, explanation_attributions)
 
     if len(decision_scores) == len(explanation_scores) and len(decision_scores) > 0:
         # Convert to numpy arrays

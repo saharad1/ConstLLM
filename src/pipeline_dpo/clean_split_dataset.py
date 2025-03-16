@@ -2,7 +2,7 @@ import json
 import os
 import random
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import torch
 from datasets.dataset_dict import DatasetDict, IterableDatasetDict
@@ -10,12 +10,16 @@ from datasets.iterable_dataset import IterableDataset
 from torch.utils.data import DataLoader
 
 from datasets import Dataset, load_dataset
+from src.collect_data.comp_score import (
+    calculate_cosine_similarity,
+    calculate_spearman_correlation,
+)
 
 
-def preprocess_jsonl(input_path: Path, output_path: Path, include_scores=True) -> None:
+def preprocess_jsonl(input_path: Path, output_path: Path) -> None:
     """
     Cleans the JSONL file to only keep fields required for DPO training.
-    Always calculates and includes the Spearman score difference for flexible filtering later.
+    Calculates both Spearman correlation and cosine similarity between decision and explanation attributions.
     """
     # Ensure the parent directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -32,8 +36,9 @@ def preprocess_jsonl(input_path: Path, output_path: Path, include_scores=True) -
                     k in item
                     for k in [
                         "decision_prompt",
-                        "explanation_best",
-                        "explanation_worst",
+                        "decision_attributions",
+                        "explanation_attributions",
+                        "explanation_outputs",
                         "explanation_prompt",
                     ]
                 ):
@@ -41,38 +46,107 @@ def preprocess_jsonl(input_path: Path, output_path: Path, include_scores=True) -
                     continue
 
                 # Construct cleaned entry
-                cleaned_entry: dict[str, Any] = {
+                cleaned_entry: Dict[str, Any] = {
                     "decision_prompt": item["decision_prompt"],
                     "explanation_prompt": item["explanation_prompt"],
-                    "explanation_best": item["explanation_best"],
-                    "explanation_worst": item["explanation_worst"],
+                    "decision_output": item.get("decision_output", ""),
+                    "correct_label": item.get("correct_label", ""),
                 }
 
-                # Always include scores and calculate the difference for later filtering
-                best_score = float(item["explanation_best"].get("spearman_score", 0.0))
-                worst_score = float(item["explanation_worst"].get("spearman_score", 0.0))
+                # Compute both similarity metrics for each explanation
+                decision_attributions = item["decision_attributions"]
 
-                cleaned_entry["explanation_best"]["spearman_score"] = best_score
-                cleaned_entry["explanation_worst"]["spearman_score"] = worst_score
+                # Initialize variables to track best and worst explanations for both metrics
+                spearman_best_score = -2.0  # Spearman ranges from -1 to 1
+                spearman_worst_score = 2.0
+                cosine_best_score = -1.0  # Cosine ranges from -1 to 1
+                cosine_worst_score = 2.0
 
-                # Add the score difference for easy filtering later
-                cleaned_entry["spearman_score_diff"] = best_score - worst_score
+                spearman_best_explanation = None
+                spearman_worst_explanation = None
+                cosine_best_explanation = None
+                cosine_worst_explanation = None
+
+                explanation_details = []
+
+                for i, explanation_attr in enumerate(item["explanation_attributions"]):
+                    # Calculate Spearman correlation
+                    spearman_score = calculate_spearman_correlation(decision_attributions, explanation_attr)
+
+                    # Calculate cosine similarity
+                    cosine_score = calculate_cosine_similarity(decision_attributions, explanation_attr)
+
+                    # Create an explanation detail object
+                    explanation_detail = {
+                        "explanation_output": item["explanation_outputs"][i],
+                        "spearman_score": spearman_score,
+                        "cosine_score": cosine_score,
+                        # "decision_output": item.get("decision_output", ""),
+                    }
+
+                    explanation_details.append(explanation_detail)
+
+                    # Track best and worst by Spearman
+                    if spearman_score > spearman_best_score:
+                        spearman_best_score = spearman_score
+                        spearman_best_explanation = explanation_detail
+
+                    if spearman_score < spearman_worst_score:
+                        spearman_worst_score = spearman_score
+                        spearman_worst_explanation = explanation_detail
+
+                    # Track best and worst by cosine
+                    if cosine_score > cosine_best_score:
+                        cosine_best_score = cosine_score
+                        cosine_best_explanation = explanation_detail
+
+                    if cosine_score < cosine_worst_score:
+                        cosine_worst_score = cosine_score
+                        cosine_worst_explanation = explanation_detail
+
+                # Skip items with no valid explanations
+                if (
+                    spearman_best_explanation is None
+                    or spearman_worst_explanation is None
+                    or cosine_best_explanation is None
+                    or cosine_worst_explanation is None
+                ):
+                    print(f"Skipping item with no valid explanations: {item}")
+                    continue
+
+                # # Add all explanations and their details
+                # cleaned_entry["explanation_details"] = explanation_details
+
+                # Add best and worst explanations by Spearman
+                cleaned_entry["spearman_best"] = spearman_best_explanation
+                cleaned_entry["spearman_worst"] = spearman_worst_explanation
+                cleaned_entry["spearman_score_diff"] = spearman_best_score - spearman_worst_score
+
+                # Add best and worst explanations by cosine
+                cleaned_entry["cosine_best"] = cosine_best_explanation
+                cleaned_entry["cosine_worst"] = cosine_worst_explanation
+                cleaned_entry["cosine_score_diff"] = cosine_best_score - cosine_worst_score
 
                 cleaned_data.append(cleaned_entry)
 
             except json.JSONDecodeError as e:
                 print(f"Skipping malformed JSON row: {e}")
+            except Exception as e:
+                print(f"Error processing row: {e}")
+                continue
 
     # Save cleaned dataset
     with open(output_path, "w") as f:
         for entry in cleaned_data:
             f.write(json.dumps(entry) + "\n")
 
+    print(f"Processed {len(cleaned_data)} entries with both Spearman and cosine metrics")
+
 
 def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eval_ratio=0.2, test_ratio=0.1, seed=42) -> None:
     """
     Splits a JSONL file into train/eval/test sets based on given ratios.
-    Score differences are precalculated in the preprocessing step for
+    Cosine similarities are precalculated in the preprocessing step for
     later filtering at training time.
 
     Args:
@@ -83,8 +157,8 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
         test_ratio: Proportion of data to use for testing
         seed: Random seed for reproducibility
     """
-    # Ensure the parent directory exists
-    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    # Ensure the output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load all lines
     data = []
@@ -131,18 +205,17 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
 
 # Example usage
 if __name__ == "__main__":
-    # Example usage - Create clean dataset with preprocessed score differences
-    raw_dpo_dataset_path = Path("dpo_datasets") / "codah_dpo_datasets" / "codah_250219_165846_LIME.jsonl"
+    # Example usage - Create clean dataset with preprocessed cosine similarities
+    raw_dpo_dataset_path = Path("dpo_datasets/ecqa_dpo_datasets/ecqa_250221_181714_LIME.jsonl")
 
     # Create output directory
-    output_dir = Path("dpo_datasets") / "cleaned_codah_dpo_datasets" / "cleaned_codah_250219_165846_LIME"
-    cleaned_dpo_dataset_path = output_dir / "cleaned_codah_250219_165846_LIME.jsonl"
+    output_dir = Path("dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME")
+    cleaned_dpo_dataset_path = output_dir / "cleaned_ecqa_250221_181714_LIME.jsonl"
 
-    # Process with score differences always included for later filtering
-    preprocess_jsonl(raw_dpo_dataset_path, cleaned_dpo_dataset_path, include_scores=True)
+    # Process with cosine similarities
+    preprocess_jsonl(raw_dpo_dataset_path, cleaned_dpo_dataset_path)
 
     # Split without applying any threshold - thresholds will be applied during training
     split_cleaned_jsonl(cleaned_dpo_dataset_path, output_dir)
 
-    print("\nTo filter at training time, use:")
-    print("python train_dpo_unsloth.py --threshold 0.3")
+    print("Done Cleaning and Splitting the dataset.")

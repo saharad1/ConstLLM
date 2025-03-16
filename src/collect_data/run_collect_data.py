@@ -13,7 +13,11 @@ import torch
 from tqdm import tqdm
 
 import wandb
-from collect_data.comp_score import compute_kl_divergence, compute_spearman_score
+from collect_data.comp_score import (
+    calculate_cosine_similarity,
+    calculate_spearman_correlation,
+    compute_kl_divergence,
+)
 from datasets import load_dataset
 from llm_attribution.LLMAnalyzer import LLMAnalyzer
 from llm_attribution.utils_attribution import AttributionMethod
@@ -69,22 +73,37 @@ def load_and_prepare_dataset(dataset_name, subset=20):
     return prepared_dataset
 
 
-# Process individual scenario
 def process_scenario(
     llm_analyzer,
     scenario_item,
     methods_params_decision,
     methods_params_explanation,
     num_dec_exp,
+    similarity_metric="spearman",  # Add similarity_metric parameter with default "spearman"
 ):
-    spearman_triplet = []
+    """
+    Process a single scenario with the given analyzer, methods, and parameters.
+
+    Args:
+        llm_analyzer: The LLM analyzer to use
+        scenario_item: The scenario item to process
+        methods_params_decision: Parameters for the decision phase
+        methods_params_explanation: Parameters for the explanation phase
+        num_dec_exp: Number of explanation generations to try
+        similarity_metric: Which similarity metric to use ("spearman" or "cosine")
+
+    Returns:
+        ScenarioScores object with the results
+    """
+    similarity_triplet = []
     explanation_outputs = []
-    spearman_scores = []
+    similarity_scores = []
     current_method = next(iter(methods_params_decision))
 
     assert current_method == next(iter(methods_params_explanation)), "Mismatched methods"
 
     print(f"Current method: {current_method}")
+    print(f"Using similarity metric: {similarity_metric}")
 
     # Decision Phase
     decision_prompt = custom_apply_chat_template([{"role": "user", "content": scenario_item.scenario_string}])
@@ -117,18 +136,27 @@ def process_scenario(
         explanation_attributions = explanation_result.methods_scores[current_method]
         explanation_attributions_list.append(explanation_attributions)
 
-        # Compute Spearman score
-        curr_spearman_score = compute_spearman_score(
-            decision_attributions=decision_attributions,
-            explanation_attributions=explanation_attributions,
-        )
-        logger.info(f"Spearman Score for repetition {i+1}: {curr_spearman_score}")
-        spearman_scores.append(curr_spearman_score)
-        spearman_triplet.append(ExplanationRanking(decision_output, explanation_output, curr_spearman_score))
+        # Compute similarity score based on the selected metric
+        if similarity_metric == "cosine":
+            curr_similarity_score = calculate_cosine_similarity(
+                decision_attributions=decision_attributions,
+                explanation_attributions=explanation_attributions,
+            )
+            score_name = "Cosine Similarity"
+        else:  # Default to Spearman
+            curr_similarity_score = calculate_spearman_correlation(
+                decision_attributions=decision_attributions,
+                explanation_attributions=explanation_attributions,
+            )
+            score_name = "Spearman Score"
 
-    # Best and worst explanations
-    explanation_best = max(spearman_triplet, key=lambda x: x.spearman_score)
-    explanation_worst = min(spearman_triplet, key=lambda x: x.spearman_score)
+        logger.info(f"{score_name} for repetition {i+1}: {curr_similarity_score}")
+        similarity_scores.append(curr_similarity_score)
+        similarity_triplet.append(ExplanationRanking(decision_output, explanation_output, curr_similarity_score))
+
+    # Best and worst explanations based on the selected metric
+    explanation_best = max(similarity_triplet, key=lambda x: x.similarity_score)
+    explanation_worst = min(similarity_triplet, key=lambda x: x.similarity_score)
 
     scenario_result = ScenarioScores(
         scenario_id=scenario_item.scenario_id,
@@ -139,7 +167,7 @@ def process_scenario(
         explanation_outputs=explanation_outputs,
         decision_attributions=decision_attributions,
         explanation_attributions=explanation_attributions_list,
-        spearman_scores=spearman_scores,
+        spearman_scores=similarity_scores,  # Renamed from spearman_scores but keeping the same field
         explanation_best=explanation_best,
         explanation_worst=explanation_worst,
     )
@@ -157,6 +185,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     subset = None  # Set to None to process the entire dataset
     attribution_method = AttributionMethod.FEATURE_ABLATION.name
     device = "cuda"
+    similarity_metric = "spearman"
 
     assert dataset_name in [
         "codah",
@@ -210,6 +239,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
         "num_dec_exp": num_dec_exp,
         "dataset": dataset_name,
         "subset": subset,
+        "similarity_metric": similarity_metric,
         "attribution_method": attribution_method,
         "methods_params_decision": methods_params_decision,
         "methods_params_explanation": methods_params_explanation,
@@ -226,8 +256,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     wandb.init(
         project=f"ConstLLM_Collect_Data",
         name=run_name,
-        group=dataset_name,
-        tags=[attribution_method],
+        tags=[dataset_name, attribution_method, similarity_metric],
         config=config,
         mode="online" if wandb_mode else "disabled",
     )
@@ -250,6 +279,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
                 methods_params_decision=methods_params_decision,
                 methods_params_explanation=methods_params_explanation,
                 num_dec_exp=num_dec_exp,  # Number of decision-explanation repetitions
+                similarity_metric=similarity_metric,
             )
             if wandb_mode:
                 with open(jsonl_filename, "a") as f:
