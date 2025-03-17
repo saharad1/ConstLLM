@@ -13,21 +13,22 @@ import torch
 from tqdm import tqdm
 
 import wandb
-from collect_data.comp_score import (
+from datasets import load_dataset
+from src.collect_data.comp_score import (
     calculate_cosine_similarity,
     calculate_spearman_correlation,
     compute_kl_divergence,
 )
-from datasets import load_dataset
-from llm_attribution.LLMAnalyzer import LLMAnalyzer
-from llm_attribution.utils_attribution import AttributionMethod
-from prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
-from prepare_datasets.prepare_codah import PreparedCODAHDataset
-from prepare_datasets.prepare_ecqa import PreparedECQADataset
-from utils.custom_chat_template import custom_apply_chat_template
-from utils.data_models import ExplanationRanking, ScenarioScores
-from utils.general import print_gpu_info
-from utils.phase_run import MethodParams, run_phase
+from src.llm_attribution.LLMAnalyzer import LLMAnalyzer
+from src.llm_attribution.utils_attribution import AttributionMethod
+from src.prepare_datasets.prepare_arc import PreparedARCDataset
+from src.prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
+from src.prepare_datasets.prepare_codah import PreparedCODAHDataset
+from src.prepare_datasets.prepare_ecqa import PreparedECQADataset
+from src.utils.custom_chat_template import custom_apply_chat_template
+from src.utils.data_models import ExplanationRanking, ScenarioScores
+from src.utils.general import print_gpu_info
+from src.utils.phase_run import MethodParams, run_phase
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 print_gpu_info()
@@ -67,6 +68,9 @@ def load_and_prepare_dataset(dataset_name, subset=20):
     elif dataset_name == "ecqa":
         raw_dataset = load_dataset(path="yangdong/ecqa", split="all")
         prepared_dataset = PreparedECQADataset(raw_dataset, subset=subset)
+    elif dataset_name == "arc_easy":
+        raw_dataset = load_dataset(path="ai2_arc", name="ARC-Easy", split="train")
+        prepared_dataset = PreparedARCDataset(raw_dataset, subset=subset)
     else:
         raise ValueError(f"Invalid dataset name: {dataset_name}")
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
@@ -286,17 +290,17 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
     wandb_mode = True
-    dataset_name = "choice75"  # Set to "codah" or "choice75" or "ecqa"
+    dataset_name = "arc_easy"  # Set to "codah" or "choice75" or "ecqa" or "arc_easy"
     num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
-    attribution_method = AttributionMethod.FEATURE_ABLATION.name
+    attribution_method = AttributionMethod.LIME.name
     device = "cuda"
-    similarity_metric = "spearman"
 
     assert dataset_name in [
         "codah",
         "choice75",
         "ecqa",
+        "arc_easy",
     ], f"Invalid dataset name: {dataset_name}"
 
     # Set parameters using a single function call per method
@@ -345,7 +349,6 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
         "num_dec_exp": num_dec_exp,
         "dataset": dataset_name,
         "subset": subset,
-        "similarity_metric": similarity_metric,
         "attribution_method": attribution_method,
         "methods_params_decision": methods_params_decision,
         "methods_params_explanation": methods_params_explanation,
@@ -362,16 +365,14 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     wandb.init(
         project=f"ConstLLM_Collect_Data",
         name=run_name,
-        tags=[dataset_name, attribution_method, similarity_metric],
+        tags=[dataset_name, attribution_method],
         config=config,
         mode="online" if wandb_mode else "disabled",
     )
 
     success_sum = 0
-    spearman_best_score_sum = 0
-    spearman_worst_score_sum = 0
-    cosine_best_score_sum = 0
-    cosine_worst_score_sum = 0
+    spearman_best_score_sum, spearman_worst_score_sum = 0, 0
+    cosine_best_score_sum, cosine_worst_score_sum = 0, 0
     for iteration, scenario_item in tqdm(
         enumerate(prepared_dataset, 1),
         total=len(prepared_dataset),
@@ -387,7 +388,6 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
                 methods_params_decision=methods_params_decision,
                 methods_params_explanation=methods_params_explanation,
                 num_dec_exp=num_dec_exp,  # Number of decision-explanation repetitions
-                similarity_metric=similarity_metric,
             )
             if wandb_mode:
                 with open(jsonl_filename, "a") as f:
@@ -464,4 +464,4 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
 if __name__ == "__main__":
     model_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    run_collect_d(model_id=model_id, wandb_mode=False)
+    run_collect_d(model_id=model_id, wandb_mode=True)

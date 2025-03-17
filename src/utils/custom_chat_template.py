@@ -1,11 +1,9 @@
-from typing import List, Dict
+from typing import Dict, List
 
-from utils.ModelTokenizerBundle import ModelTokenizerBundle
+from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
 
 
-def custom_apply_chat_template(
-    messages: List, add_generation_prompt=True, tokenize=False, tokenizer=None
-):
+def custom_apply_chat_template(messages: List, add_generation_prompt=True, tokenize=False, tokenizer=None):
     """
     Constructs a chat prompt from messages, similar to apply_chat_template,
     but excludes the default system prompt.
@@ -22,11 +20,7 @@ def custom_apply_chat_template(
     prompt = ""
 
     # Begin the prompt with the beginning of text token
-    bos_token = (
-        tokenizer.bos_token
-        if tokenizer and tokenizer.bos_token
-        else "<|begin_of_text|>"
-    )
+    bos_token = tokenizer.bos_token if tokenizer and tokenizer.bos_token else "<|begin_of_text|>"
     prompt += bos_token
 
     # Iterate over the messages
@@ -42,9 +36,7 @@ def custom_apply_chat_template(
         elif role == "user":
             prompt += f"\n<|start_header_id|>user<|end_header_id|>{content}<|eot_id|>"
         elif role == "assistant":
-            prompt += (
-                f"\n<|start_header_id|>assistant<|end_header_id|>{content}<|eot_id|>"
-            )
+            prompt += f"\n<|start_header_id|>assistant<|end_header_id|>{content}<|eot_id|>"
         else:
             raise ValueError(f"Unknown role: {role}")
 
@@ -59,9 +51,6 @@ def custom_apply_chat_template(
         return tokenized_input
     else:
         return prompt
-
-
-
 
 
 if __name__ == "__main__":

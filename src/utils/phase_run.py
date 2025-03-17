@@ -1,4 +1,4 @@
-from llm_attribution.utils_attribution import AttributionMethod
+from src.llm_attribution.utils_attribution import AttributionMethod
 
 
 class MethodParams:
@@ -39,9 +39,7 @@ class MethodParams:
 def run_phase(llm_analyzer, prompt, methods_params, phase="decision"):
     print(f"Running {phase} phase...")
     output = llm_analyzer.generate_output(prompt)
-    result = llm_analyzer.analyze(
-        input_text=prompt, target=output, method_params=methods_params
-    )
+    result = llm_analyzer.analyze(input_text=prompt, target=output, method_params=methods_params)
     if not result:
         raise ValueError(f"{phase.capitalize()} phase returned invalid results")
     return output, result

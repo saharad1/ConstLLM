@@ -6,7 +6,7 @@ from typing import List
 
 from torch.utils.data import Dataset
 
-from utils.data_models import Choice75ScenarioItem
+from src.utils.data_models import Choice75ScenarioItem
 
 DATASET_PATH = Path("datasets") / "choice-75"
 
@@ -41,33 +41,21 @@ class PreparedCHOICE75Dataset(Dataset):
 
     def load_dataset(self):
         # Load verb_phrase_manual (if needed)
-        verb_phrase_manual_train = load_json_files(
-            self.dataset_path / "verb_phrase_manual" / "train"
-        )
-        verb_phrase_manual_dev = load_json_files(
-            self.dataset_path / "verb_phrase_manual" / "dev"
-        )
+        verb_phrase_manual_train = load_json_files(self.dataset_path / "verb_phrase_manual" / "train")
+        verb_phrase_manual_dev = load_json_files(self.dataset_path / "verb_phrase_manual" / "dev")
         verb_phrase_manual = verb_phrase_manual_train + verb_phrase_manual_dev
 
         # Load verb_phrase_machine (if needed)
-        verb_phrase_machine_train = load_json_files(
-            self.dataset_path / "verb_phrase_machine" / "train"
-        )
-        verb_phrase_machine_dev = load_json_files(
-            self.dataset_path / "verb_phrase_machine" / "dev"
-        )
+        verb_phrase_machine_train = load_json_files(self.dataset_path / "verb_phrase_machine" / "train")
+        verb_phrase_machine_dev = load_json_files(self.dataset_path / "verb_phrase_machine" / "dev")
         verb_phrase_machine = verb_phrase_machine_train + verb_phrase_machine_dev
 
         # Load train and dev splits from user_profile
-        user_profile_train = load_json_files(
-            self.dataset_path / "user_profile" / "train"
-        )
+        user_profile_train = load_json_files(self.dataset_path / "user_profile" / "train")
         user_profile_dev = load_json_files(self.dataset_path / "user_profile" / "dev")
         user_profile = user_profile_train + user_profile_dev
 
-        self.original_choice75_data = (
-            verb_phrase_manual + verb_phrase_machine + user_profile
-        )
+        self.original_choice75_data = verb_phrase_manual + verb_phrase_machine + user_profile
         self.original_choice75_data.sort(key=lambda x: x["index"])
 
     def divide_to_scenarios(self):
@@ -81,9 +69,7 @@ class PreparedCHOICE75Dataset(Dataset):
                 entry["branching_info"]["option 2"],
                 "Either one, since they have similar effect when it comes to the goal",
             ]
-            options_string = "\n".join(
-                f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options)
-            )
+            options_string = "\n".join(f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options))
 
             steps = entry["steps"][:branching_idx]
 

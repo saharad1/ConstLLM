@@ -6,7 +6,7 @@ from datasets import load_dataset
 from src.utils.data_models import ScenarioItem
 
 
-class PreparedECQADataset(Dataset):
+class PreparedARCDataset(Dataset):
     def __init__(self, original_dataset, subset: Union[int, slice] = None):
         """
         Initialize the dataset with a specific mode.
@@ -17,7 +17,7 @@ class PreparedECQADataset(Dataset):
             subset (Union[int, slice], optional): Number or slice of examples to select.
         """
         self.original_dataset = original_dataset
-        self.target_tokens: list = ["A", "B", "C", "D", "E"]
+        self.target_tokens: list = ["A", "B", "C", "D"]
 
         # Subset selection
         if subset is not None:
@@ -47,23 +47,18 @@ class PreparedECQADataset(Dataset):
         return self._prepare_item(example, idx)
 
     def _prepare_item(self, example, idx):
-        question = example["q_text"]
+        question = example["question"]
 
         prompt = f"{question}\n"
         prompt += self.instruction_decision
-        options = [
-            example["q_op1"],
-            example["q_op2"],
-            example["q_op3"],
-            example["q_op4"],
-            example["q_op5"],
-        ]
+
+        options = example["choices"]["text"]
         for i, option in enumerate(options):
             prompt += f"{self.target_tokens[i]}) {option}\n"
 
-        label = example["q_ans"]
-        label_idx = options.index(label)
-        label_letter = self.target_tokens[label_idx]
+        label_letter = example["answerKey"]
+        # label_idx = options.index(label)
+        # label_letter = self.target_tokens[label_idx]
 
         # Create ScenarioItem
         user_prompts = [
@@ -80,11 +75,11 @@ class PreparedECQADataset(Dataset):
 
 
 if __name__ == "__main__":
-    ecqa_dataset = load_dataset(path="yangdong/ecqa", split="all", cache_dir="../datasets")
-    prepared_ecqa_dataset = PreparedECQADataset(ecqa_dataset, subset=10)
-    print(f"Number of scenarios: {len(prepared_ecqa_dataset)}")
-    print(ecqa_dataset)
-    for idx, scenario_item in enumerate(prepared_ecqa_dataset, 1):
+    arc_dataset = load_dataset(path="allenai/ai2_arc", name="ARC-Easy", split="all")
+    prepared_arc_dataset = PreparedARCDataset(arc_dataset, subset=10)
+    print(f"Number of scenarios: {len(prepared_arc_dataset)}")
+    print(arc_dataset)
+    for idx, scenario_item in enumerate(prepared_arc_dataset, 1):
         print(f"\n=== Running Scenario {idx} ===")
         print(scenario_item)
         print(f"{scenario_item.scenario_string}")

@@ -3,12 +3,10 @@ from typing import Dict, List
 
 import nltk
 
-from utils.ModelTokenizerBundle import ModelTokenizerBundle
+from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
 
 
-def get_skip_tokens(
-    tokenizer, extra_skip_tokens: list = None, only_skip_structure: bool = True
-) -> dict:
+def get_skip_tokens(tokenizer, extra_skip_tokens: list = None, only_skip_structure: bool = True) -> dict:
     """
     Identifies stop words and punctuation tokens in the tokenizer's vocabulary.
 
@@ -43,9 +41,7 @@ def get_skip_tokens(
     # Analyze the tokenizer's vocabulary
     for token, token_id in vocab.items():
         # Normalize token to handle leading/trailing characters
-        stripped_token = token.lstrip("ĊĠ▁").rstrip(
-            "ĊĠ▁"
-        )  # Remove leading/trailing symbols
+        stripped_token = token.lstrip("ĊĠ▁").rstrip("ĊĠ▁")  # Remove leading/trailing symbols
 
         # Check if the stripped token is a stop word
         if stripped_token in stop_words:

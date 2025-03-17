@@ -1,6 +1,6 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -11,8 +11,8 @@ from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel, PatchDPOTrainer, is_bfloat16_supported
 
 import wandb
-from pipeline_dpo.prepare_dataset_to_dpo import load_dpo_dataset
-from utils.general import print_gpu_info
+from src.pipeline_dpo.prepare_dataset_to_dpo import load_dpo_dataset
+from src.utils.general import print_gpu_info
 
 print_gpu_info()
 
@@ -168,7 +168,7 @@ def run_sweep(
     sweep_config_name = f"{similarity_metric}-diff{diff_threshold}"
 
     # Initialize the sweep with WandB
-    sweep_id = wandb.sweep(sweep=sweep_config, project=sweep_project, name=sweep_config_name)
+    sweep_id = wandb.sweep(sweep=sweep_config, project=sweep_project)
 
     # Define the sweep training function with fixed parameters captured in closure
     def sweep_train():
@@ -220,7 +220,7 @@ def run_sweep(
 
 # Example usage in if __name__ == "__main__":
 if __name__ == "__main__":
-    dataset_path = Path(f"dpo_datasets/ecqa_dpo_datasets/ecqa_250221_181714_LIME.jsonl")
+    dataset_path = Path(f"dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME")
     # Example: Run sweep with cosine similarity
     run_sweep(
         dataset_path=dataset_path,

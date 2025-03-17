@@ -15,14 +15,14 @@ from captum.attr import (
 )
 from captum.attr._core.llm_attr import LLMAttributionResult
 
-from llm_attribution.LLMAttributionMod import ExtendedLLMAttribution
-from llm_attribution.TextTokenInputMod import TextTokenInputMod
-from llm_attribution.utils_attribution import AttributionMethod
-from utils.custom_chat_template import custom_apply_chat_template
-from utils.data_models import LLMAnalysisRes
-from utils.general import print_gpu_info
-from utils.get_skip_tokens import get_skip_tokens
-from utils.ModelTokenizerBundle import ModelTokenizerBundle
+from src.llm_attribution.LLMAttributionMod import ExtendedLLMAttribution
+from src.llm_attribution.TextTokenInputMod import TextTokenInputMod
+from src.llm_attribution.utils_attribution import AttributionMethod
+from src.utils.custom_chat_template import custom_apply_chat_template
+from src.utils.data_models import LLMAnalysisRes
+from src.utils.general import print_gpu_info
+from src.utils.get_skip_tokens import get_skip_tokens
+from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
 
 
 class LLMAnalyzer:
@@ -36,9 +36,7 @@ class LLMAnalyzer:
     ):
         if isinstance(model_id, str):
             # Load the tokenizer and model directly
-            model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(
-                model_id=model_id, use_quantization=True, device=device
-            )
+            model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(model_id=model_id, use_quantization=True, device=device)
             self.tokenizer = model_bundle.tokenizer
             self.model = model_bundle.model
             self.model.eval()
@@ -77,10 +75,7 @@ class LLMAnalyzer:
 
         # Ensure the lengths match
         if len(input_tokens) != len(seq_attr):
-            raise ValueError(
-                f"Shape mismatch: input_tokens has length {len(input_tokens)}, "
-                f"but seq_attr has length {len(seq_attr)}."
-            )
+            raise ValueError(f"Shape mismatch: input_tokens has length {len(input_tokens)}, " f"but seq_attr has length {len(seq_attr)}.")
         return list(zip(input_tokens, seq_attr))
 
     def generate_output(self, input_text: str) -> str:
@@ -95,9 +90,7 @@ class LLMAnalyzer:
         self.model.generation_config.use_cache = False
 
         # Tokenize and generate
-        inputs = self.tokenizer(
-            input_text, return_tensors="pt", padding=True, truncation=True
-        ).to(self.model.device)
+        inputs = self.tokenizer(input_text, return_tensors="pt", padding=True, truncation=True).to(self.model.device)
         with torch.no_grad():
             output_ids = self.model.generate(
                 input_ids=inputs["input_ids"],
@@ -109,15 +102,11 @@ class LLMAnalyzer:
                 top_p=0.9,
                 pad_token_id=self.tokenizer.pad_token_id,
             )
-        generated_text = self.tokenizer.decode(
-            output_ids[0][inputs["input_ids"].shape[-1] :], skip_special_tokens=True
-        )
+        generated_text = self.tokenizer.decode(output_ids[0][inputs["input_ids"].shape[-1] :], skip_special_tokens=True)
 
         return generated_text
 
-    def _prepare_input(
-        self, full_text: str, static_texts: Union[str, List[str], None] = None
-    ) -> TextTokenInputMod:
+    def _prepare_input(self, full_text: str, static_texts: Union[str, List[str], None] = None) -> TextTokenInputMod:
         """
         Prepares the interpretable input with static and dynamic parts.
 
@@ -153,9 +142,7 @@ class LLMAnalyzer:
             attr_method=attribution_method,
             tokenizer=self.tokenizer,
         )
-        return llm_attr.attribute(
-            inp=interpretable_input, target=target, show_progress=True, **params
-        )
+        return llm_attr.attribute(inp=interpretable_input, target=target, show_progress=True, **params)
 
     def analyze_shapley_value_sampling(self, input_text: str, target: str, **params):
         interpretable_input = self._prepare_input(input_text)
@@ -205,9 +192,7 @@ class LLMAnalyzer:
             **params,
         )
 
-    def analyze_layer_integrated_gradients(
-        self, input_text: str, target: str, **params
-    ):
+    def analyze_layer_integrated_gradients(self, input_text: str, target: str, **params):
 
         # Prepare interpretable inputs
         interpretable_input = self._prepare_input(input_text)
@@ -216,14 +201,10 @@ class LLMAnalyzer:
         params.setdefault("baselines", self.tokenizer.pad_token_id)
 
         # Define the Layer Integrated Gradients algorithm
-        lig_method = LayerIntegratedGradients(
-            forward_func=self.model, layer=self.embedding_layer
-        )
+        lig_method = LayerIntegratedGradients(forward_func=self.model, layer=self.embedding_layer)
 
         # Wrap LIG with LLMGradientAttribution for consistent processing
-        gradient_attributor = LLMGradientAttribution(
-            attr_method=lig_method, tokenizer=self.tokenizer
-        )
+        gradient_attributor = LLMGradientAttribution(attr_method=lig_method, tokenizer=self.tokenizer)
 
         # Compute attribution
         return gradient_attributor.attribute(
@@ -238,9 +219,7 @@ class LLMAnalyzer:
         input_text: str,
         static_texts: Union[str, List[str], None] = None,
         target: Optional[str] = None,
-        method_params: Optional[
-            Dict[AttributionMethod, Dict[str, LLMAttributionResult]]
-        ] = None,
+        method_params: Optional[Dict[AttributionMethod, Dict[str, LLMAttributionResult]]] = None,
     ) -> LLMAnalysisRes:
         """
         Analyze input using attribution methods specified in method_params, where each method can have its own parameters.
@@ -263,21 +242,13 @@ class LLMAnalyzer:
                         **params,
                     )
                 elif method == AttributionMethod.SHAPLEY_VALUE_SAMPLING.name:
-                    results[method] = self.analyze_shapley_value_sampling(
-                        input_text, target, **params
-                    )
+                    results[method] = self.analyze_shapley_value_sampling(input_text, target, **params)
                 elif method == AttributionMethod.LIG.name:
-                    results[method] = self.analyze_layer_integrated_gradients(
-                        input_text, target, **params
-                    )
+                    results[method] = self.analyze_layer_integrated_gradients(input_text, target, **params)
                 elif method == AttributionMethod.FEATURE_ABLATION.name:
-                    results[method] = self.analyze_feature_ablation(
-                        input_text, target, **params
-                    )
+                    results[method] = self.analyze_feature_ablation(input_text, target, **params)
                 elif method == AttributionMethod.KERNEL_SHAP.name:
-                    results[method] = self.analyze_kernel_shap(
-                        input_text, target, **params
-                    )
+                    results[method] = self.analyze_kernel_shap(input_text, target, **params)
                 # Add other methods here as needed
                 else:
                     print(f"Method {method} is not supported.")
@@ -287,14 +258,9 @@ class LLMAnalyzer:
                 traceback.print_exc()
                 continue
 
-        methods_scores = {
-            method: self._get_seq_attr_list(result)
-            for method, result in results.items()
-        }
+        methods_scores = {method: self._get_seq_attr_list(result) for method, result in results.items()}
 
-        analysis_results = LLMAnalysisRes(
-            input_text=input_text, target=target, methods_scores=methods_scores
-        )
+        analysis_results = LLMAnalysisRes(input_text=input_text, target=target, methods_scores=methods_scores)
         return analysis_results
 
 

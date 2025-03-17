@@ -6,13 +6,11 @@ from torch.utils.data import Dataset
 from datasets import load_dataset
 
 # ScenarioItem = namedtuple('ScenarioItem', ['user_prompts', 'label'])
-from utils.data_models import ScenarioItem
+from src.utils.data_models import ScenarioItem
 
 
 class PreparedCODAHDataset(Dataset):
-    def __init__(
-        self, original_dataset, mode: str = "exp1", subset: Union[int, slice] = None
-    ):
+    def __init__(self, original_dataset, mode: str = "exp1", subset: Union[int, slice] = None):
         """
         Initialize the dataset with a specific mode.
 
@@ -84,9 +82,7 @@ class PreparedCODAHDataset(Dataset):
         # Generate the decision prompt
         prompt = f"{question}\n"
         prompt += self.instruction_decision
-        prompt += "\n".join(
-            f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options)
-        )
+        prompt += "\n".join(f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options))
         # prompt += "\n" + self.instruction_decision_2
 
         # Get the correct answer
@@ -115,9 +111,7 @@ class PreparedCODAHDataset(Dataset):
         prompt = f"{self.instruction_decision}"
         prompt += f"{self.instruction_decision_2}"
         prompt += f"{question}\n"
-        prompt += "\n".join(
-            f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options)
-        )
+        prompt += "\n".join(f"{self.target_tokens[i]}) {option}" for i, option in enumerate(options))
 
         # Get the correct answer
         label = example["correct_answer_idx"]
@@ -136,9 +130,7 @@ class PreparedCODAHDataset(Dataset):
 
 def show_codah_data():
     # Load the CODAH dataset
-    codah_dataset: Dataset = load_dataset(
-        path="jaredfern/codah", name="codah", split="all", cache_dir="../datasets"
-    )
+    codah_dataset: Dataset = load_dataset(path="jaredfern/codah", name="codah", split="all", cache_dir="../datasets")
 
     print(f"Number of scenarios: {len(codah_dataset)}")
 
