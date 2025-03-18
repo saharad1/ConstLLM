@@ -1,14 +1,18 @@
+# Add imports
+import gc
 import json
 import logging
 import os
+import signal
 import sys
 import time
 from collections import Counter
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
+import psutil
 import torch
 from tqdm import tqdm
 
@@ -69,7 +73,7 @@ def load_and_prepare_dataset(dataset_name, subset=20):
         raw_dataset = load_dataset(path="yangdong/ecqa", split="all")
         prepared_dataset = PreparedECQADataset(raw_dataset, subset=subset)
     elif dataset_name == "arc_easy":
-        raw_dataset = load_dataset(path="ai2_arc", name="ARC-Easy", split="train")
+        raw_dataset = load_dataset(path="ai2_arc", name="ARC-Easy", split="all")
         prepared_dataset = PreparedARCDataset(raw_dataset, subset=subset)
     else:
         raise ValueError(f"Invalid dataset name: {dataset_name}")
@@ -183,109 +187,30 @@ def process_scenario(
     return scenario_result
 
 
-# def process_scenario(
-#     llm_analyzer,
-#     scenario_item,
-#     methods_params_decision,
-#     methods_params_explanation,
-#     num_dec_exp,
-#     similarity_metric="spearman",  # Add similarity_metric parameter with default "spearman"
-# ):
-#     """
-#     Process a single scenario with the given analyzer, methods, and parameters.
+def get_memory_usage():
+    """Get current memory usage of the process"""
 
-#     Args:
-#         llm_analyzer: The LLM analyzer to use
-#         scenario_item: The scenario item to process
-#         methods_params_decision: Parameters for the decision phase
-#         methods_params_explanation: Parameters for the explanation phase
-#         num_dec_exp: Number of explanation generations to try
-#         similarity_metric: Which similarity metric to use ("spearman" or "cosine")
-
-#     Returns:
-#         ScenarioScores object with the results
-#     """
-#     similarity_triplet = []
-#     explanation_outputs = []
-#     similarity_scores = []
-#     current_method = next(iter(methods_params_decision))
-
-#     assert current_method == next(iter(methods_params_explanation)), "Mismatched methods"
-
-#     print(f"Current method: {current_method}")
-#     print(f"Using similarity metric: {similarity_metric}")
-
-#     # Decision Phase
-#     decision_prompt = custom_apply_chat_template([{"role": "user", "content": scenario_item.scenario_string}])
-#     decision_output, decision_result = run_phase(
-#         llm_analyzer=llm_analyzer,
-#         prompt=decision_prompt,
-#         methods_params=methods_params_decision,
-#         phase="decision",
-#     )
-
-#     decision_attributions = decision_result.methods_scores[current_method]
-#     explanation_attributions_list = []
-#     for i in range(num_dec_exp):
-#         logger.info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
-#         # Explanation Phase
-#         explanation_prompt = custom_apply_chat_template(
-#             [
-#                 {"role": "user", "content": scenario_item.scenario_string},
-#                 {"role": "assistant", "content": decision_output},
-#                 {"role": "user", "content": scenario_item.explanation_string},
-#             ]
-#         )
-#         explanation_output, explanation_result = run_phase(
-#             llm_analyzer=llm_analyzer,
-#             prompt=explanation_prompt,
-#             methods_params=methods_params_explanation,
-#             phase="explanation",
-#         )
-#         explanation_outputs.append(explanation_output)
-#         explanation_attributions = explanation_result.methods_scores[current_method]
-#         explanation_attributions_list.append(explanation_attributions)
-
-#         # Compute similarity score based on the selected metric
-#         if similarity_metric == "cosine":
-#             curr_similarity_score = calculate_cosine_similarity(
-#                 decision_attributions=decision_attributions,
-#                 explanation_attributions=explanation_attributions,
-#             )
-#             score_name = "Cosine Similarity"
-#         else:  # Default to Spearman
-#             curr_similarity_score = calculate_spearman_correlation(
-#                 decision_attributions=decision_attributions,
-#                 explanation_attributions=explanation_attributions,
-#             )
-#             score_name = "Spearman Score"
-
-#         logger.info(f"{score_name} for repetition {i+1}: {curr_similarity_score}")
-#         similarity_scores.append(curr_similarity_score)
-#         similarity_triplet.append(ExplanationRanking(decision_output, explanation_output, curr_similarity_score))
-
-#     # Best and worst explanations based on the selected metric
-#     explanation_best = max(similarity_triplet, key=lambda x: x.similarity_score)
-#     explanation_worst = min(similarity_triplet, key=lambda x: x.similarity_score)
-
-#     scenario_result = ScenarioScores(
-#         scenario_id=scenario_item.scenario_id,
-#         correct_label=scenario_item.label,
-#         decision_prompt=scenario_item.scenario_string,
-#         decision_output=decision_output,
-#         explanation_prompt=scenario_item.explanation_string,
-#         explanation_outputs=explanation_outputs,
-#         decision_attributions=decision_attributions,
-#         explanation_attributions=explanation_attributions_list,
-#         spearman_scores=similarity_scores,  # Renamed from spearman_scores but keeping the same field
-#         explanation_best=explanation_best,
-#         explanation_worst=explanation_worst,
-#     )
-
-#     return scenario_result
+    process = psutil.Process()
+    return {
+        "ram_percent": process.memory_percent(),
+        "ram_used_gb": process.memory_info().rss / (1024 * 1024 * 1024),
+        "gpu_memory_used": torch.cuda.max_memory_allocated() / (1024 * 1024 * 1024) if torch.cuda.is_available() else 0,
+    }
 
 
-# Main function
+def adjust_batch_params(memory_stats, methods_params):
+    """Dynamically adjust parameters based on memory usage"""
+    if memory_stats["ram_percent"] > 85 or memory_stats["gpu_memory_used"] > 30:
+        # Reduce sample size if memory usage is too high
+        for method in methods_params:
+            # if "n_samples" in methods_params[method]:
+            #     methods_params[method]["n_samples"] = max(100, methods_params[method]["n_samples"] // 2)
+            if "perturbations_per_eval" in methods_params[method]:
+                methods_params[method]["perturbations_per_eval"] = max(100, methods_params[method]["perturbations_per_eval"] // 2)
+        return True
+    return False
+
+
 def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # set configurations
@@ -296,12 +221,21 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     attribution_method = AttributionMethod.LIME.name
     device = "cuda"
 
-    assert dataset_name in [
-        "codah",
-        "choice75",
-        "ecqa",
-        "arc_easy",
-    ], f"Invalid dataset name: {dataset_name}"
+    # Add configuration for periodic model reload
+    RELOAD_MODEL_EVERY = 50  # Reload model every 50 scenarios
+    MEMORY_CHECK_INTERVAL = 5  # Check memory every 5 scenarios
+    MAX_RETRIES = 3  # Maximum number of retries per scenario
+
+    # Setup signal handler for graceful shutdown
+    running = True
+
+    def signal_handler(signum, frame):
+        nonlocal running
+        print("\nReceived shutdown signal. Completing current scenario...")
+        running = False
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Set parameters using a single function call per method
     if attribution_method == AttributionMethod.LIME.name:
@@ -357,6 +291,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     # Initialize LLM analyzer
     logger.info("Initializing LLM analyzer...")
     llm_analyzer = LLMAnalyzer(model_id=model_id, device=device)
+    last_model_reload = 0
 
     # Load and prepare dataset
     prepared_dataset = load_and_prepare_dataset(dataset_name=dataset_name, subset=subset)
@@ -370,31 +305,147 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
         mode="online" if wandb_mode else "disabled",
     )
 
-    success_sum = 0
+    # Load checkpoint and initialize progress tracking
+    checkpoint_file = jsonl_filename.with_suffix(".checkpoint")
+    progress_file = jsonl_filename.with_suffix(".progress")
+    processed_scenarios = set()
+
+    # Load checkpoint and progress data
+    if checkpoint_file.exists():
+        with open(checkpoint_file, "r") as f:
+            processed_scenarios = set(f.read().splitlines())
+        logger.info(f"Loaded {len(processed_scenarios)} processed scenarios from checkpoint")
+
+    # Initialize or load progress tracking
+    progress_data = {
+        "start_time": datetime.now().isoformat(),
+        "total_processing_time": 0,
+        "total_scenarios": len(prepared_dataset),
+        "completed_scenarios": len(processed_scenarios),
+        "failed_scenarios": [],
+        "avg_scenario_time": 0,
+        "estimated_completion_time": None,
+    }
+
+    if progress_file.exists():
+        with open(progress_file, "r") as f:
+            saved_progress = json.load(f)
+            progress_data.update(saved_progress)
+
+    success_sum = len(processed_scenarios)
     spearman_best_score_sum, spearman_worst_score_sum = 0, 0
     cosine_best_score_sum, cosine_worst_score_sum = 0, 0
+
+    # Track original parameters for potential adjustment
+    original_params = {"decision": methods_params_decision.copy(), "explanation": methods_params_explanation.copy()}
+
     for iteration, scenario_item in tqdm(
         enumerate(prepared_dataset, 1),
         total=len(prepared_dataset),
         desc="Processing Scenarios",
     ):
-        start_time = time.time()  # Start timing
+        if not running:
+            logger.info("Graceful shutdown initiated. Saving progress...")
+            break
 
-        try:
-            logger.info(f"\n=== Running Scenario {iteration} ===")
-            scenario_res = process_scenario(
-                llm_analyzer=llm_analyzer,
-                scenario_item=scenario_item,
-                methods_params_decision=methods_params_decision,
-                methods_params_explanation=methods_params_explanation,
-                num_dec_exp=num_dec_exp,  # Number of decision-explanation repetitions
-            )
-            if wandb_mode:
-                with open(jsonl_filename, "a") as f:
-                    f.write(json.dumps(asdict(scenario_res)) + "\n")
-        except ValueError as e:
-            logger.error(f"Error processing scenario {iteration}: {e}")
+        # Skip processed scenarios
+        if str(scenario_item.scenario_id) in processed_scenarios:
             continue
+
+        # Check if model needs reloading
+        if iteration - last_model_reload >= RELOAD_MODEL_EVERY:
+            logger.info("Performing periodic model reload...")
+            del llm_analyzer
+            torch.cuda.empty_cache()
+            gc.collect()
+            llm_analyzer = LLMAnalyzer(model_id=model_id, device=device)
+            last_model_reload = iteration
+
+        # Monitor and adjust resources
+        if iteration % MEMORY_CHECK_INTERVAL == 0:
+            memory_stats = get_memory_usage()
+            if adjust_batch_params(memory_stats, methods_params_decision):
+                logger.warning("Adjusted parameters due to high memory usage")
+                # wandb.log({"memory_adjustment": True, **memory_stats})
+
+        start_time = time.time()
+        retry_count = 0
+
+        while retry_count < MAX_RETRIES:
+            try:
+                logger.info(f"\n=== Running Scenario {iteration} (Attempt {retry_count + 1}/{MAX_RETRIES}) ===")
+
+                # Clear CUDA cache
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                scenario_res = process_scenario(
+                    llm_analyzer=llm_analyzer,
+                    scenario_item=scenario_item,
+                    methods_params_decision=methods_params_decision,
+                    methods_params_explanation=methods_params_explanation,
+                    num_dec_exp=num_dec_exp,
+                    logger=logger,
+                )
+
+                # Successful processing
+                if wandb_mode:
+                    with open(jsonl_filename, "a") as f:
+                        f.write(json.dumps(asdict(scenario_res)) + "\n")
+
+                    # Update checkpoint
+                    with open(checkpoint_file, "a") as f:
+                        f.write(f"{scenario_item.scenario_id}\n")
+                    processed_scenarios.add(str(scenario_item.scenario_id))
+
+                # Update progress tracking
+                scenario_time = time.time() - start_time
+                progress_data["total_processing_time"] += scenario_time
+                progress_data["completed_scenarios"] = len(processed_scenarios)
+                progress_data["avg_scenario_time"] = progress_data["total_processing_time"] / progress_data["completed_scenarios"]
+
+                # Estimate completion time
+                remaining_scenarios = progress_data["total_scenarios"] - progress_data["completed_scenarios"]
+                estimated_remaining_time = remaining_scenarios * progress_data["avg_scenario_time"]
+                progress_data["estimated_completion_time"] = (datetime.now() + timedelta(seconds=estimated_remaining_time)).isoformat()
+
+                # Save progress
+                with open(progress_file, "w") as f:
+                    json.dump(progress_data, f)
+
+                # Log memory stats
+                memory_stats = get_memory_usage()
+                wandb.log(
+                    {
+                        # "memory/ram_percent": memory_stats["ram_percent"],
+                        "memory/ram_used_gb": memory_stats["ram_used_gb"],
+                        "memory/gpu_memory_used": memory_stats["gpu_memory_used"],
+                        # "progress/estimated_completion_time": progress_data["estimated_completion_time"],
+                        # "progress/avg_scenario_time": progress_data["avg_scenario_time"],
+                    }
+                )
+
+                break  # Success, exit retry loop
+
+            except Exception as e:
+                retry_count += 1
+                error_msg = f"Error processing scenario {iteration} (Attempt {retry_count}/{MAX_RETRIES}): {str(e)}"
+                logger.error(error_msg, exc_info=True)
+
+                if retry_count < MAX_RETRIES:
+                    logger.info(f"Retrying in 5 seconds...")
+                    time.sleep(5)
+                    # Try resetting parameters if they were adjusted
+                    methods_params_decision = original_params["decision"].copy()
+                    methods_params_explanation = original_params["explanation"].copy()
+                else:
+                    # Log final failure
+                    with open(jsonl_filename.with_suffix(".errors"), "a") as f:
+                        f.write(f"Scenario {scenario_item.scenario_id}: {error_msg}\n")
+                    progress_data["failed_scenarios"].append(str(scenario_item.scenario_id))
+                    with open(progress_file, "w") as f:
+                        json.dump(progress_data, f)
+                    continue
 
         # Compute key results
         # Compute iteration time and accuracy
@@ -444,22 +495,6 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
                 "scenario/iteration_time_seconds": time.time() - start_time,
             }
         )
-
-        # Log key results and iteration time for tracking progress in wandb
-        # wandb.log(
-        #     {
-        #         "iteration": iteration,
-        #         "accuracy": accuracy_label,
-        #         "spearman_best_score_avg": spearman_best_score_avg,
-        #         "spearman_worst_score_avg": spearman_worst_score_avg,
-        #         "scenario/scenario_id": scenario_res.scenario_id,
-        #         "scenario/iteration_time_seconds": iteration_time,
-        #         "scenario/best_spearman_score": spearman_best_score,
-        #         "scenario/worst_spearman_score": spearman_worst_score,
-        #         "scenario/spearman_diff": spearman_best_score - spearman_worst_score,
-        #         "scenario/spearman_std": std_spearman,
-        #     }
-        # )
 
 
 if __name__ == "__main__":

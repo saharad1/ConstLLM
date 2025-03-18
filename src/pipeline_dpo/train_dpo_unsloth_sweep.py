@@ -97,7 +97,7 @@ def train_dpo_with_config(
         weight_decay=config.weight_decay,
         eval_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="eval/rewards/margins",
+        metric_for_best_model="rewards/margins",  # Use the metric for best model (no need to add eval/)
         greater_is_better=True,
     )
 
@@ -113,14 +113,14 @@ def train_dpo_with_config(
     )
 
     # Start training
-    print(f"🚀 Starting DPO training with {similarity_metric} similarity (diff threshold: {diff_threshold})...")
+    print(f" Starting DPO training with {similarity_metric} similarity (diff threshold: {diff_threshold})...")
     trainer.train()
-    print("✅ Training completed.")
+    print(" Training completed.")
 
     # Save the model
     save_path = output_dir / "final-model"
     trainer.save_model(str(save_path))
-    print(f"✅ Model saved to {save_path}")
+    print(f" Model saved to {save_path}")
 
     return trainer
 
@@ -150,13 +150,12 @@ def run_sweep(
         "method": "bayes",  # Bayesian optimization
         "metric": {"name": "eval/rewards/margins", "goal": "maximize"},
         "parameters": {
-            "learning_rate": {"min": 1e-6, "max": 1e-5, "distribution": "log_uniform"},
-            # "learning_rate": {"values": [1e-6, 2e-6, 4e-6, 5e-6]},
+            "learning_rate": {"distribution": "log_uniform_values", "min": 1e-6, "max": 5e-5},
             "beta": {"min": 0.05, "max": 0.2, "distribution": "uniform"},
             "per_device_train_batch_size": {"values": [32]},
             "gradient_accumulation_steps": {"values": [16]},
             "warmup_ratio": {"values": [0.0, 0.05, 0.1]},
-            "weight_decay": {"min": 0.0, "max": 0.1, "distribution": "uniform"},
+            "weight_decay": {"min": 0.0, "max": 0.01, "distribution": "uniform"},
             "num_train_epochs": {"values": [20]},
             "lr_scheduler_type": {"values": ["cosine", "linear"]},
         },
@@ -193,6 +192,8 @@ def run_sweep(
 
         # Get the hyperparameters from wandb
         config = wandb.config
+        # Print the learning rate for debugging
+        print(f"Using learning rate: {config.learning_rate}")
 
         # Run training with these hyperparameters and fixed parameters
         train_dpo_with_config(
