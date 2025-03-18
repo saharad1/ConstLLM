@@ -13,11 +13,10 @@ class PreparedARCDataset(Dataset):
 
         Args:
             original_dataset (Dataset): The original CODAH dataset.
-            mode (str): The experiment mode ('exp1', 'exp2', etc.).
             subset (Union[int, slice], optional): Number or slice of examples to select.
         """
         self.original_dataset = original_dataset
-        self.target_tokens: list = ["A", "B", "C", "D"]
+        self.target_tokens: list = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
 
         # Subset selection
         if subset is not None:
@@ -76,7 +75,8 @@ class PreparedARCDataset(Dataset):
 
 if __name__ == "__main__":
     arc_dataset = load_dataset(path="allenai/ai2_arc", name="ARC-Easy", split="all")
-    prepared_arc_dataset = PreparedARCDataset(arc_dataset, subset=10)
+
+    prepared_arc_dataset = PreparedARCDataset(arc_dataset, subset=None)
     print(f"Number of scenarios: {len(prepared_arc_dataset)}")
     print(arc_dataset)
     for idx, scenario_item in enumerate(prepared_arc_dataset, 1):
@@ -85,3 +85,6 @@ if __name__ == "__main__":
         print(f"{scenario_item.scenario_string}")
         print(f"Correct Label: '{scenario_item.label}'")
         print("\n" + "=" * 50 + "\n")
+
+    print(f"Number of scenarios: {len(arc_dataset)}")
+    print(f"Number of scenarios: {len(prepared_arc_dataset)}")

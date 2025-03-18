@@ -211,7 +211,67 @@ def adjust_batch_params(memory_stats, methods_params):
     return False
 
 
-def run_collect_d(model_id: str, wandb_mode: bool = True):
+def log_system_status():
+    memory = get_memory_usage()
+    logger.info(
+        f"System Status - RAM: {memory['ram_used_gb']:.2f}GB ({memory['ram_percent']:.1f}%), GPU: {memory['gpu_memory_used']:.2f}GB"
+    )
+
+
+def list_available_runs(dataset_name: str = None):
+    """List all available runs and their progress."""
+    base_dir = Path("dpo_datasets")
+    if not base_dir.exists():
+        logger.warning("No runs found - dpo_datasets directory does not exist")
+        return []
+
+    runs = []
+    # If dataset_name is provided, only look in that dataset's directory
+    if dataset_name:
+        dataset_dirs = [base_dir / f"{dataset_name}_dpo_datasets"]
+    else:
+        dataset_dirs = [d for d in base_dir.iterdir() if d.is_dir() and d.name.endswith("_dpo_datasets")]
+
+    for dataset_dir in dataset_dirs:
+        if not dataset_dir.exists():
+            continue
+
+        for jsonl_file in dataset_dir.glob("*.jsonl"):
+            run_name = jsonl_file.stem
+            progress_file = jsonl_file.with_suffix(".progress")
+            checkpoint_file = jsonl_file.with_suffix(".checkpoint")
+
+            # Get progress information if available
+            progress_info = "Unknown"
+            if progress_file.exists():
+                try:
+                    with open(progress_file, "r") as f:
+                        progress = json.load(f)
+                        progress_info = f"{progress['completed_scenarios']}/{progress['total_scenarios']} scenarios"
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+            # Get completion status
+            status = "Unknown"
+            if checkpoint_file.exists():
+                with open(checkpoint_file, "r") as f:
+                    completed = len(f.readlines())
+                    status = f"Checkpointed: {completed} scenarios"
+
+            runs.append(
+                {
+                    "run_name": run_name,
+                    "dataset": dataset_dir.name.replace("_dpo_datasets", ""),
+                    "progress": progress_info,
+                    "status": status,
+                    "last_modified": datetime.fromtimestamp(jsonl_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            )
+
+    return runs
+
+
+def run_collect_d(model_id: str, wandb_mode: bool = True, resume_run: str = None):
 
     # set configurations
     wandb_mode = True
@@ -228,14 +288,31 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
     # Setup signal handler for graceful shutdown
     running = True
+    termination_reason = None
 
     def signal_handler(signum, frame):
-        nonlocal running
-        print("\nReceived shutdown signal. Completing current scenario...")
+        nonlocal running, termination_reason
+        termination_reason = f"Received signal {signal.Signals(signum).name}"
+        logger.warning(f"\n{termination_reason}")
         running = False
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    # Set run name based on whether we're resuming or starting new
+    if resume_run:
+        run_name = resume_run
+        logger.info(f"Resuming run: {run_name}")
+        # Extract attribution method from run name
+        try:
+            attribution_method = run_name.split("_")[-1]  # Get last part after underscore
+            logger.info(f"Using attribution method from run name: {attribution_method}")
+        except:
+            logger.warning(f"Could not extract attribution method from run name, using default: {attribution_method}")
+    else:
+        timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+        run_name = f"{dataset_name}_{timestamp}_{attribution_method}"
+        logger.info(f"Starting new run: {run_name}")
 
     # Set parameters using a single function call per method
     if attribution_method == AttributionMethod.LIME.name:
@@ -269,9 +346,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     else:
         raise ValueError(f"Invalid attribution method: {attribution_method}")
 
-    # Generate a timestamped run name
-    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-    run_name = f"{dataset_name}_{timestamp}_{attribution_method}"
+    # Set up file paths
     jsonl_filename = Path("dpo_datasets") / f"{dataset_name}_dpo_datasets" / f"{run_name}.jsonl"
     # Ensure directories exist
     if wandb_mode:
@@ -339,17 +414,23 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
     # Track original parameters for potential adjustment
     original_params = {"decision": methods_params_decision.copy(), "explanation": methods_params_explanation.copy()}
 
+    print(processed_scenarios)
+    print(prepared_dataset)
     for iteration, scenario_item in tqdm(
         enumerate(prepared_dataset, 1),
         total=len(prepared_dataset),
         desc="Processing Scenarios",
     ):
         if not running:
-            logger.info("Graceful shutdown initiated. Saving progress...")
+            logger.warning(f"Graceful shutdown initiated. Reason: {termination_reason}")
+            logger.warning(f"Saving progress at scenario {iteration}/{len(prepared_dataset)}")
+            # Save final system status
+            log_system_status()
             break
 
         # Skip processed scenarios
         if str(scenario_item.scenario_id) in processed_scenarios:
+            logger.info(f"Skipping processed scenario {scenario_item.scenario_id}")
             continue
 
         # Check if model needs reloading
@@ -363,10 +444,11 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
 
         # Monitor and adjust resources
         if iteration % MEMORY_CHECK_INTERVAL == 0:
+            log_system_status()
             memory_stats = get_memory_usage()
             if adjust_batch_params(memory_stats, methods_params_decision):
                 logger.warning("Adjusted parameters due to high memory usage")
-                # wandb.log({"memory_adjustment": True, **memory_stats})
+                wandb.log({"memory_adjustment": True, **memory_stats})
 
         start_time = time.time()
         retry_count = 0
@@ -496,7 +578,27 @@ def run_collect_d(model_id: str, wandb_mode: bool = True):
             }
         )
 
+    print("Done Collecting")
+    wandb.finish()
+
 
 if __name__ == "__main__":
     model_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    run_collect_d(model_id=model_id, wandb_mode=True)
+
+    # List available runs
+    print("\nAvailable runs:")
+    runs = list_available_runs("arc_easy")
+    if runs:
+        print("\nFound the following runs:")
+        for run in runs:
+            print(f"\nRun: {run['run_name']}")
+            print(f"Dataset: {run['dataset']}")
+            print(f"Progress: {run['progress']}")
+            print(f"Status: {run['status']}")
+            print(f"Last Modified: {run['last_modified']}")
+
+    # To resume a specific run, uncomment and modify the following line:
+    # resume_run = "arc_easy_250318_011026_LIME"  # Your previous run name
+    resume_run = None
+
+    run_collect_d(model_id=model_id, wandb_mode=True, resume_run=resume_run)
