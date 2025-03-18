@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 from src.utils.data_models import Choice75ScenarioItem
 
-DATASET_PATH = Path("datasets") / "choice-75"
+DATASET_PATH = Path("cached_datasets") / "choice-75"
 
 
 def load_json_files(directory):

@@ -14,10 +14,10 @@ from pathlib import Path
 import numpy as np
 import psutil
 import torch
+from datasets import load_dataset
 from tqdm import tqdm
 
 import wandb
-from datasets import load_dataset
 from src.collect_data.comp_score import (
     calculate_cosine_similarity,
     calculate_spearman_correlation,

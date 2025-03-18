@@ -2,11 +2,11 @@
 archive/
 outputs_present/
 wandb/
-datasets/
+cached_datasets/
 results/
 trained_models/
 dpo_datasets/
 __pycache__/
 unsloth_compiled_cache/
 ppo_datasets/
-show_logs/
+meetings_files/

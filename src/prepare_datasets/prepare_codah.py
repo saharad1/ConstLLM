@@ -1,9 +1,8 @@
 from collections import namedtuple
 from typing import Union
 
-from torch.utils.data import Dataset
-
 from datasets import load_dataset
+from torch.utils.data import Dataset
 
 # ScenarioItem = namedtuple('ScenarioItem', ['user_prompts', 'label'])
 from src.utils.data_models import ScenarioItem
@@ -130,7 +129,7 @@ class PreparedCODAHDataset(Dataset):
 
 def show_codah_data():
     # Load the CODAH dataset
-    codah_dataset: Dataset = load_dataset(path="jaredfern/codah", name="codah", split="all", cache_dir="../datasets")
+    codah_dataset: Dataset = load_dataset(path="jaredfern/codah", name="codah", split="all")
 
     print(f"Number of scenarios: {len(codah_dataset)}")
 
