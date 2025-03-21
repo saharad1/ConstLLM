@@ -1,8 +1,8 @@
 from typing import Union
 
+from datasets import load_dataset
 from torch.utils.data import Dataset
 
-from datasets import load_dataset
 from src.utils.data_models import ScenarioItem
 
 
@@ -74,7 +74,7 @@ class PreparedARCDataset(Dataset):
 
 
 if __name__ == "__main__":
-    arc_dataset = load_dataset(path="allenai/ai2_arc", name="ARC-Easy", split="all")
+    arc_dataset = load_dataset(path="allenai/ai2_arc", name="ARC-Challenge", split="all")
 
     prepared_arc_dataset = PreparedARCDataset(arc_dataset, subset=None)
     print(f"Number of scenarios: {len(prepared_arc_dataset)}")

@@ -30,11 +30,11 @@ from src.prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
 from src.prepare_datasets.prepare_codah import PreparedCODAHDataset
 from src.prepare_datasets.prepare_ecqa import PreparedECQADataset
 from src.utils.custom_chat_template import custom_apply_chat_template
-from src.utils.data_models import ExplanationRanking, ScenarioScores
+from src.utils.data_models import ScenarioScores
 from src.utils.general import print_gpu_info
 from src.utils.phase_run import MethodParams, run_phase
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 print_gpu_info()
 
 # Set up logging
@@ -74,6 +74,9 @@ def load_and_prepare_dataset(dataset_name, subset=20):
         prepared_dataset = PreparedECQADataset(raw_dataset, subset=subset)
     elif dataset_name == "arc_easy":
         raw_dataset = load_dataset(path="ai2_arc", name="ARC-Easy", split="all")
+        prepared_dataset = PreparedARCDataset(raw_dataset, subset=subset)
+    elif dataset_name == "arc_challenge":
+        raw_dataset = load_dataset(path="ai2_arc", name="ARC-Challenge", split="all")
         prepared_dataset = PreparedARCDataset(raw_dataset, subset=subset)
     else:
         raise ValueError(f"Invalid dataset name: {dataset_name}")
@@ -275,7 +278,7 @@ def run_collect_d(model_id: str, wandb_mode: bool = True, resume_run: str = None
 
     # set configurations
     wandb_mode = True
-    dataset_name = "arc_easy"  # Set to "codah" or "choice75" or "ecqa" or "arc_easy"
+    dataset_name = "arc_challenge"  # Set to "codah" or "choice75" or "ecqa" or "arc_easy" or "arc_challenge"
     num_dec_exp = 5
     subset = None  # Set to None to process the entire dataset
     attribution_method = AttributionMethod.LIME.name

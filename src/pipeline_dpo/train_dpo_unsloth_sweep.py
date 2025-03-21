@@ -1,6 +1,6 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -74,7 +74,7 @@ def train_dpo_with_config(
     print(f"Number of train samples: {len(train_dataset)}")
     print(f"Number of eval samples: {len(eval_dataset)}")
 
-    output_dir = Path("trained_models") / f"{dataset_name}_models" / "LLama-instruct-8b" / run_name
+    output_dir = Path("trained_models") / f"{dataset_name}_models" / model_name / run_name
 
     # Create DPO Training Config from sweep parameters
     training_args = DPOConfig(
@@ -129,8 +129,8 @@ def run_sweep(
     dataset_path: Path,
     model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
     include_scores=False,
-    dataset_name="codah",  # ecqa or codah
-    similarity_metric="spearman",  # "spearman" or "cosine"
+    dataset_name="ecqa",  # ecqa or codah
+    similarity_metric="cosine",  # "spearman" or "cosine"
     diff_threshold=0.1,
     sweep_count=10,
 ):
@@ -156,15 +156,16 @@ def run_sweep(
             "gradient_accumulation_steps": {"values": [16]},
             "warmup_ratio": {"values": [0.0, 0.05, 0.1]},
             "weight_decay": {"min": 0.0, "max": 0.01, "distribution": "uniform"},
-            "num_train_epochs": {"values": [20]},
+            "num_train_epochs": {"values": [30]},
             "lr_scheduler_type": {"values": ["cosine", "linear"]},
         },
     }
-    # Create a unique sweep project name that includes both dataset and similarity metric
-    sweep_project = f"dpo-{dataset_name}-{similarity_metric}-sweep"
+    # Create a unique sweep project name that includes model, dataset and similarity metric
+    model_short_name = model_name.split("/")[-1]  # Extract just the model name without organization
+    sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}"
 
     # Include fixed parameters in the sweep name
-    sweep_config_name = f"{similarity_metric}-diff{diff_threshold}"
+    sweep_config_name = f"{similarity_metric}_diff{diff_threshold}_bs{sweep_config['parameters']['per_device_train_batch_size']['values'][0]}_ep{sweep_config['parameters']['num_train_epochs']['values'][0]}"
 
     # Initialize the sweep with WandB
     sweep_id = wandb.sweep(sweep=sweep_config, project=sweep_project)
@@ -174,7 +175,12 @@ def run_sweep(
         """Inner function that runs a single training with sweep parameters."""
         # Initialize a new wandb run
         timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-        run_name = f"{dataset_name}_{similarity_metric}_{timestamp}"
+
+        # Get the hyperparameters from wandb config
+        config = wandb.config
+
+        # Create a more descriptive run name
+        run_name = f"{dataset_name}_{similarity_metric}_lr{config.learning_rate:.2e}_beta{config.beta:.2f}_{timestamp}"
 
         # Start a new wandb run with fixed parameters logged
         run = wandb.init(name=run_name)
@@ -190,8 +196,6 @@ def run_sweep(
             allow_val_change=True,
         )
 
-        # Get the hyperparameters from wandb
-        config = wandb.config
         # Print the learning rate for debugging
         print(f"Using learning rate: {config.learning_rate}")
 
@@ -227,7 +231,7 @@ if __name__ == "__main__":
         dataset_path=dataset_path,
         model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
         dataset_name="ecqa",
-        similarity_metric="spearman",
-        diff_threshold=0.1,
+        similarity_metric="cosine",
+        diff_threshold=0.2,
         sweep_count=10,
     )
