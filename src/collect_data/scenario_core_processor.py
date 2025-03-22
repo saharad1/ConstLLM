@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_scenario_attribute(scenario_item, dict_key, obj_attr):
+def get_scenario_attribute(scenario_item, dict_key, obj_attr, default=""):
     """
     Helper function to get an attribute from either a dictionary or an object.
 
@@ -30,14 +30,15 @@ def get_scenario_attribute(scenario_item, dict_key, obj_attr):
         scenario_item: Either a dictionary or an object
         dict_key: The key to use if scenario_item is a dictionary
         obj_attr: The attribute name to use if scenario_item is an object
+        default: Default value to return if attribute is not found
 
     Returns:
         The value from the scenario_item
     """
     if isinstance(scenario_item, dict):
-        return scenario_item.get(dict_key, "")
+        return scenario_item.get(dict_key, default)
     else:
-        return getattr(scenario_item, obj_attr, "")
+        return getattr(scenario_item, obj_attr, default)
 
 
 def process_scenario(

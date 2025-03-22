@@ -16,16 +16,24 @@ def configure_attribution_methods(attribution_method_name, phase=None):
     Returns:
         Method parameters dictionary
     """
-    if attribution_method_name == AttributionMethod.LIME.name:
-        params = MethodParams.set_params(AttributionMethod.LIME.name, n_samples=500, perturbations_per_eval=500)
-    elif attribution_method_name == AttributionMethod.LIG.name:
-        params = MethodParams.set_params(AttributionMethod.LIG.name, n_steps=25)
-    elif attribution_method_name == AttributionMethod.SHAPLEY_VALUE_SAMPLING.name:
-        params = MethodParams.set_params(AttributionMethod.SHAPLEY_VALUE_SAMPLING.name, n_samples=500)
+    # Normalize the attribution method name to match the enum values
+    attribution_method_upper = attribution_method_name.upper()
+    
+    if attribution_method_upper == "LIME":
+        # Use the actual enum value for consistency
+        method_name = AttributionMethod.LIME.name
+        params = MethodParams.set_params(method_name, n_samples=500, perturbations_per_eval=500)
+    elif attribution_method_upper == "LIG":
+        method_name = AttributionMethod.LIG.name
+        params = MethodParams.set_params(method_name, n_steps=25)
+    elif attribution_method_upper == "SHAPLEY_VALUE_SAMPLING":
+        method_name = AttributionMethod.SHAPLEY_VALUE_SAMPLING.name
+        params = MethodParams.set_params(method_name, n_samples=500)
     else:
         raise ValueError(f"Unsupported attribution method: {attribution_method_name}")
 
-    return {attribution_method_name: params}
+    # Return the params directly - they already have the method name as a key
+    return params
 
 
 def get_attribution_methods_params(attribution_method_name):

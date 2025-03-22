@@ -10,7 +10,7 @@ import traceback
 from dataclasses import asdict
 
 # Import the process_scenario function from the renamed module
-from src.collect_data.scenario_core_processor import process_scenario
+from src.collect_data.scenario_core_processor import process_scenario, get_scenario_attribute
 
 
 def process_single_scenario(scenario_item, llm_analyzer, methods_params_decision, 
@@ -33,7 +33,7 @@ def process_single_scenario(scenario_item, llm_analyzer, methods_params_decision
         Tuple of (scenario_result, error_message)
     """
     # Extract scenario ID for tracking
-    scenario_id = scenario_item.get("scenario_id", f"scenario_{iteration}")
+    scenario_id = get_scenario_attribute(scenario_item, "scenario_id", "scenario_id", f"scenario_{iteration}")
     
     # Initialize error message
     error_msg = None
@@ -58,11 +58,17 @@ def process_single_scenario(scenario_item, llm_analyzer, methods_params_decision
             return scenario_res, None
             
         except Exception as e:
-            error_msg = f"Error processing scenario {scenario_id} (attempt {retry+1}/{max_retries}): {str(e)}\n{traceback.format_exc()}"
+            error_msg = f"Error processing scenario (retry {retry+1}/{max_retries}): {str(e)}\n{traceback.format_exc()}"
             print(error_msg)
-            time.sleep(1)  # Brief pause before retry
+            
+            # Wait before retrying
+            time.sleep(2)
+            
+            # Reset parameters for retry
+            methods_params_decision = original_params["decision"].copy()
+            methods_params_explanation = original_params["explanation"].copy()
     
-    # If all retries failed, return None for scenario_res
+    # If we get here, all retries failed
     return None, error_msg
 
 

@@ -7,6 +7,9 @@
 # Exit on error
 set -e
 
+# GPU ID to use
+GPU_ID=1
+
 # Default values
 MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 DATASET="ecqa"
@@ -15,8 +18,9 @@ NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=false
 RESUME_RUN=""
-GPU_ID=0
 TEMPERATURE=0.7
+
+
 
 # Display help message
 function show_help {
@@ -100,7 +104,7 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 echo "Using GPU: $GPU_ID"
 
 # Build command
-CMD="python -m src.collect_data.run_collect_data_new --model_id \"$MODEL_ID\" --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE"
+CMD="python -m src.collect_data.run_collect_data --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE"
 
 # Add optional parameters
 if [[ -n "$SUBSET" && "$SUBSET" != "None" ]]; then

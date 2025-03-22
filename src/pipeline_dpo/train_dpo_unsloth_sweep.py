@@ -120,10 +120,10 @@ def train_dpo_with_config(
     trainer.train()
     print(" Training completed.")
 
-    # Save the model
-    save_path = output_dir / "final-model"
-    trainer.save_model(str(save_path))
-    print(f" Model saved to {save_path}")
+    # Save the best model (already loaded due to load_best_model_at_end=True)
+    best_model_path = output_dir / "best_model"
+    trainer.save_model(str(best_model_path))
+    print(f"Best model (based on {training_args.metric_for_best_model}) saved to {best_model_path}")
 
     return trainer
 
@@ -134,7 +134,7 @@ def run_sweep(
     include_scores=False,
     dataset_name="ecqa",  # ecqa or codah
     similarity_metric="cosine",  # "spearman" or "cosine"
-    diff_threshold=0.1,
+    diff_threshold=0.2,
     sweep_count=10,
 ):
     """

@@ -13,25 +13,48 @@ from pathlib import Path
 import numpy as np
 import psutil
 import torch
-import wandb
 from datasets import load_dataset
 from tqdm import tqdm
 
+import wandb
 from src.collect_data.attribution_config import get_attribution_methods_params
-from src.collect_data.collection_metrics import extract_choice, calculate_metrics
+from src.collect_data.collection_metrics import calculate_metrics, extract_choice
+from src.collect_data.dataset_loader import load_and_prepare_dataset
 from src.collect_data.run_collection_utils import (
-    setup_run_environment, 
-    load_checkpoints, 
-    save_checkpoint, 
-    save_progress, 
-    update_progress
+    load_checkpoints,
+    save_checkpoint,
+    save_progress,
+    setup_run_environment,
+    update_progress,
 )
-from src.collect_data.scenario_runner import process_single_scenario, save_scenario_result
+from src.collect_data.scenario_runner import (
+    process_single_scenario,
+    save_scenario_result,
+)
 from src.llm_attribution.LLMAnalyzer import LLMAnalyzer
 
 # Constants
 MEMORY_CHECK_INTERVAL = 20
 RELOAD_MODEL_EVERY = 50
+
+
+def get_scenario_attribute(scenario_item, dict_key, obj_attr, default=""):
+    """
+    Helper function to get an attribute from either a dictionary or an object.
+
+    Args:
+        scenario_item: Either a dictionary or an object
+        dict_key: The key to use if scenario_item is a dictionary
+        obj_attr: The attribute name to use if scenario_item is an object
+        default: Default value to return if attribute is not found
+
+    Returns:
+        The value from the scenario_item
+    """
+    if isinstance(scenario_item, dict):
+        return scenario_item.get(dict_key, default)
+    else:
+        return getattr(scenario_item, obj_attr, default)
 
 
 def run_collect_data(
@@ -72,13 +95,13 @@ def run_collect_data(
 
     # Set up run environment
     run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = setup_run_environment(
-        dataset_name=dataset_name, attribution_method_name=attribution_method_name, resume_run=resume_run
+        dataset_name=dataset_name, model_id=model_id, attribution_method_name=attribution_method_name, resume_run=resume_run
     )
 
     # Set up wandb if enabled
     if use_wandb:
         wandb.init(
-            project="ConstLLM",
+            project="constllm_collect_data",
             name=run_name,
             config={
                 "model_id": model_id,
@@ -90,20 +113,7 @@ def run_collect_data(
         )
 
     # Load dataset
-    try:
-        dataset = load_dataset(f"data/{dataset_name}")["train"]
-        if subset:
-            dataset = dataset.select(range(min(subset, len(dataset))))
-    except Exception as e:
-        print(f"Error loading dataset: {e}")
-        # Try loading from jsonl file
-        try:
-            dataset = load_dataset("json", data_files=str(Path(f"data/{dataset_name}.jsonl")))["train"]
-            if subset:
-                dataset = dataset.select(range(min(subset, len(dataset))))
-        except Exception as e2:
-            print(f"Error loading dataset from jsonl: {e2}")
-            return
+    dataset = load_and_prepare_dataset(dataset_name, subset)
 
     # Load checkpoints
     processed_scenarios, progress_data = load_checkpoints(
@@ -133,7 +143,7 @@ def run_collect_data(
     # Process scenarios
     for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
         # Skip already processed scenarios
-        scenario_id = scenario_item.get("scenario_id", f"scenario_{iteration}")
+        scenario_id = get_scenario_attribute(scenario_item, "scenario_id", "scenario_id", f"scenario_{iteration}")
         if scenario_id in processed_scenarios:
             continue
 
