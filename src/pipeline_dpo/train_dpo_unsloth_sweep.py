@@ -63,8 +63,8 @@ def train_dpo_with_config(
         model.config.pad_token_id = tokenizer.pad_token_id
 
     # Load the DPO dataset with the specified similarity metric and threshold
-    train_path = dataset_path / "train.jsonl"
-    eval_path = dataset_path / "eval.jsonl"
+    train_path = dataset_path / "train_7617.jsonl"
+    eval_path = dataset_path / "eval_2176.jsonl"
     train_dataset = load_dpo_dataset(
         file_path=str(train_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold, include_scores=include_scores
     )
@@ -73,6 +73,9 @@ def train_dpo_with_config(
     )
     print(f"Number of train samples: {len(train_dataset)}")
     print(f"Number of eval samples: {len(eval_dataset)}")
+
+    # Add dataset sizes to wandb config
+    wandb.config.update({"train_dataset_size": len(train_dataset), "eval_dataset_size": len(eval_dataset)}, allow_val_change=True)
 
     output_dir = Path("trained_models") / f"{dataset_name}_models" / model_name / run_name
 
@@ -150,19 +153,19 @@ def run_sweep(
         "method": "bayes",  # Bayesian optimization
         "metric": {"name": "eval/rewards/margins", "goal": "maximize"},
         "parameters": {
-            "learning_rate": {"distribution": "log_uniform_values", "min": 1e-6, "max": 5e-5},
-            "beta": {"min": 0.05, "max": 0.2, "distribution": "uniform"},
+            "learning_rate": {"min": 1e-5, "max": 8e-5, "distribution": "log_uniform_values"},
+            "beta": {"min": 0.08, "max": 0.18, "distribution": "uniform"},
             "per_device_train_batch_size": {"values": [32]},
             "gradient_accumulation_steps": {"values": [16]},
-            "warmup_ratio": {"values": [0.0, 0.05, 0.1]},
-            "weight_decay": {"min": 0.0, "max": 0.01, "distribution": "uniform"},
+            "warmup_ratio": {"min": 0, "max": 0.1, "distribution": "uniform"},
+            "weight_decay": {"min": 0.005, "max": 0.015, "distribution": "uniform"},
             "num_train_epochs": {"values": [30]},
             "lr_scheduler_type": {"values": ["cosine", "linear"]},
         },
     }
     # Create a unique sweep project name that includes model, dataset and similarity metric
     model_short_name = model_name.split("/")[-1]  # Extract just the model name without organization
-    sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}"
+    sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}_sweep"
 
     # Include fixed parameters in the sweep name
     sweep_config_name = f"{similarity_metric}_diff{diff_threshold}_bs{sweep_config['parameters']['per_device_train_batch_size']['values'][0]}_ep{sweep_config['parameters']['num_train_epochs']['values'][0]}"
@@ -176,14 +179,18 @@ def run_sweep(
         # Initialize a new wandb run
         timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
 
+        # Start a new wandb run first
+        run = wandb.init()
+
         # Get the hyperparameters from wandb config
         config = wandb.config
 
         # Create a more descriptive run name
         run_name = f"{dataset_name}_{similarity_metric}_lr{config.learning_rate:.2e}_beta{config.beta:.2f}_{timestamp}"
 
-        # Start a new wandb run with fixed parameters logged
-        run = wandb.init(name=run_name)
+        # Update the run name
+        run.name = run_name
+        run.save()
 
         # Log fixed parameters explicitly so they appear in the WandB dashboard
         wandb.config.update(
@@ -223,7 +230,6 @@ def run_sweep(
     wandb.agent(sweep_id, function=sweep_train, count=sweep_count)
 
 
-# Example usage in if __name__ == "__main__":
 if __name__ == "__main__":
     dataset_path = Path(f"dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME")
     # Example: Run sweep with cosine similarity

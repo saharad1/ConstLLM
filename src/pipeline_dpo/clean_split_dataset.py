@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import torch
+from datasets import Dataset, load_dataset
 from datasets.dataset_dict import DatasetDict, IterableDatasetDict
 from datasets.iterable_dataset import IterableDataset
 from torch.utils.data import DataLoader
 
-from datasets import Dataset, load_dataset
 from src.collect_data.comp_score import (
     calculate_cosine_similarity,
     calculate_spearman_correlation,
@@ -52,6 +52,10 @@ def preprocess_jsonl(input_path: Path, output_path: Path) -> None:
                     "decision_output": item.get("decision_output", ""),
                     "correct_label": item.get("correct_label", ""),
                 }
+
+                # # Add scenario_id if it exists
+                # if "scenario_id" in item:
+                cleaned_entry["scenario_id"] = item["scenario_id"]
 
                 # Compute both similarity metrics for each explanation
                 decision_attributions = item["decision_attributions"]
@@ -114,8 +118,14 @@ def preprocess_jsonl(input_path: Path, output_path: Path) -> None:
                     print(f"Skipping item with no valid explanations: {item}")
                     continue
 
-                # # Add all explanations and their details
-                # cleaned_entry["explanation_details"] = explanation_details
+                # Add all explanations and their details
+                cleaned_entry["explanation_outputs"] = item["explanation_outputs"]
+
+                # Add decision attributions for correlation calculations
+                cleaned_entry["decision_attributions"] = decision_attributions
+
+                # Add all explanation attributions
+                cleaned_entry["explanation_attributions"] = item["explanation_attributions"]
 
                 # Add best and worst explanations by Spearman
                 cleaned_entry["spearman_best"] = spearman_best_explanation
@@ -196,9 +206,9 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
             for entry in data:
                 f.write(json.dumps(entry) + "\n")
 
-    save_jsonl(train_data, f"{output_dir}/train.jsonl")
-    save_jsonl(eval_data, f"{output_dir}/eval.jsonl")
-    save_jsonl(test_data, f"{output_dir}/test.jsonl")
+    save_jsonl(train_data, f"{output_dir}/train_{len(train_data)}.jsonl")
+    save_jsonl(eval_data, f"{output_dir}/eval_{len(eval_data)}.jsonl")
+    save_jsonl(test_data, f"{output_dir}/test_{len(test_data)}.jsonl")
 
     print(f"Dataset split successfully: {len(train_data)} train, {len(eval_data)} eval, {len(test_data)} test")
 

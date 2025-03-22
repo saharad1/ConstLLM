@@ -10,3 +10,6 @@ __pycache__/
 unsloth_compiled_cache/
 ppo_datasets/
 meetings_files/
+data/
+models/
+other/
