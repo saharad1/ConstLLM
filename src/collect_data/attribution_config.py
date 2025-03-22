@@ -1,4 +1,6 @@
-# src/collect_data/attribution_config.py
+"""
+Configuration for attribution methods used in data collection.
+"""
 from src.llm_attribution.utils_attribution import AttributionMethod
 from src.utils.phase_run import MethodParams
 
@@ -24,3 +26,22 @@ def configure_attribution_methods(attribution_method_name, phase=None):
         raise ValueError(f"Unsupported attribution method: {attribution_method_name}")
 
     return {attribution_method_name: params}
+
+
+def get_attribution_methods_params(attribution_method_name):
+    """
+    Get attribution method parameters for both decision and explanation phases.
+    
+    Args:
+        attribution_method_name: Name of the attribution method to configure
+        
+    Returns:
+        Tuple of (decision_params, explanation_params)
+    """
+    # Configure parameters for decision phase
+    methods_params_decision = configure_attribution_methods(attribution_method_name, "decision")
+    
+    # Configure parameters for explanation phase
+    methods_params_explanation = configure_attribution_methods(attribution_method_name, "explanation")
+    
+    return methods_params_decision, methods_params_explanation
