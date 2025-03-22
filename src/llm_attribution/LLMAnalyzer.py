@@ -31,6 +31,7 @@ class LLMAnalyzer:
         model_id: Union[str, Any],
         tokenizer: Any = None,
         device: str = "cuda",
+        temperature: float = 0.7,
         extra_skip_tokens: list[str] = None,
         only_structure_tokens: bool = True,
     ):
@@ -43,6 +44,9 @@ class LLMAnalyzer:
         else:
             self.model = model_id
             self.tokenizer = tokenizer
+
+        self.device = device
+        self.temperature = temperature
 
         self.skip_tokens_dict = get_skip_tokens(
             tokenizer=self.tokenizer,
@@ -95,10 +99,10 @@ class LLMAnalyzer:
             output_ids = self.model.generate(
                 input_ids=inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
-                max_new_tokens=100,
+                max_new_tokens=200,
                 num_return_sequences=1,
                 do_sample=True,
-                temperature=0.7,
+                temperature=self.temperature,
                 top_p=0.9,
                 pad_token_id=self.tokenizer.pad_token_id,
             )

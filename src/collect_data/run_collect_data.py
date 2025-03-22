@@ -18,21 +18,15 @@ from datasets import load_dataset
 from tqdm import tqdm
 
 import wandb
-from src.collect_data.comp_score import (
-    calculate_cosine_similarity,
-    calculate_spearman_correlation,
-    compute_kl_divergence,
-)
+from src.collect_data.process_scenario import process_scenario
 from src.llm_attribution.LLMAnalyzer import LLMAnalyzer
 from src.llm_attribution.utils_attribution import AttributionMethod
 from src.prepare_datasets.prepare_arc import PreparedARCDataset
 from src.prepare_datasets.prepare_choice75 import PreparedCHOICE75Dataset
 from src.prepare_datasets.prepare_codah import PreparedCODAHDataset
 from src.prepare_datasets.prepare_ecqa import PreparedECQADataset
-from src.utils.custom_chat_template import custom_apply_chat_template
-from src.utils.data_models import ScenarioScores
 from src.utils.general import print_gpu_info
-from src.utils.phase_run import MethodParams, run_phase
+from src.utils.phase_run import MethodParams
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 print_gpu_info()
@@ -82,112 +76,6 @@ def load_and_prepare_dataset(dataset_name, subset=20):
         raise ValueError(f"Invalid dataset name: {dataset_name}")
     logger.info(f"Number of scenarios: {len(prepared_dataset)}")
     return prepared_dataset
-
-
-def process_scenario(
-    llm_analyzer,
-    scenario_item,
-    methods_params_decision,
-    methods_params_explanation,
-    num_dec_exp,
-    logger=None,
-) -> ScenarioScores:
-    """
-    Process a single scenario with the given analyzer, methods, and parameters.
-
-    Args:
-        llm_analyzer: The LLM analyzer to use
-        scenario_item: The scenario item to process
-        methods_params_decision: Parameters for the decision phase
-        methods_params_explanation: Parameters for the explanation phase
-        num_dec_exp: Number of explanation generations to try
-        logger: Optional logger for tracking progress
-
-    Returns:
-        ScenarioScores object with the results
-    """
-    # Logging function
-    log_info = logger.info if logger else print
-
-    # Prepare for tracking results
-    spearman_scores = []
-    cosine_scores = []
-    explanation_outputs = []
-    current_method = next(iter(methods_params_decision))
-
-    assert current_method == next(iter(methods_params_explanation)), "Mismatched methods"
-
-    log_info(f"Current method: {current_method}")
-
-    # Decision Phase
-    decision_prompt = custom_apply_chat_template([{"role": "user", "content": scenario_item.scenario_string}])
-    decision_output, decision_result = run_phase(
-        llm_analyzer=llm_analyzer,
-        prompt=decision_prompt,
-        methods_params=methods_params_decision,
-        phase="decision",
-    )
-
-    decision_attributions = decision_result.methods_scores[current_method]
-    explanation_attributions_list = []
-
-    # Multiple explanation generation
-    for i in range(num_dec_exp):
-        log_info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
-
-        # Explanation Phase
-        explanation_prompt = custom_apply_chat_template(
-            [
-                {"role": "user", "content": scenario_item.scenario_string},
-                {"role": "assistant", "content": decision_output},
-                {"role": "user", "content": scenario_item.explanation_string},
-            ]
-        )
-        explanation_output, explanation_result = run_phase(
-            llm_analyzer=llm_analyzer,
-            prompt=explanation_prompt,
-            methods_params=methods_params_explanation,
-            phase="explanation",
-        )
-
-        explanation_outputs.append(explanation_output)
-        explanation_attributions = explanation_result.methods_scores[current_method]
-        explanation_attributions_list.append(explanation_attributions)
-
-        # Compute Spearman correlation
-        curr_spearman_score = calculate_spearman_correlation(
-            decision_attributions=decision_attributions,
-            explanation_attributions=explanation_attributions,
-        )
-
-        # Compute Cosine similarity
-        curr_cosine_score = calculate_cosine_similarity(
-            decision_attributions=decision_attributions,
-            explanation_attributions=explanation_attributions,
-        )
-
-        log_info(f"Spearman Score for repetition {i+1}: {curr_spearman_score}")
-        log_info(f"Cosine Score for repetition {i+1}: {curr_cosine_score}")
-
-        # Store results
-        spearman_scores.append(curr_spearman_score)
-        cosine_scores.append(curr_cosine_score)
-
-    # Create scenario results object
-    scenario_result = ScenarioScores(
-        scenario_id=scenario_item.scenario_id,
-        correct_label=scenario_item.label,
-        decision_prompt=scenario_item.scenario_string,
-        decision_output=decision_output,
-        explanation_prompt=scenario_item.explanation_string,
-        explanation_outputs=explanation_outputs,
-        decision_attributions=decision_attributions,
-        explanation_attributions=explanation_attributions_list,
-        spearman_scores=spearman_scores,
-        cosine_scores=cosine_scores,
-    )
-
-    return scenario_result
 
 
 def get_memory_usage():
@@ -585,9 +473,8 @@ def run_collect_d(model_id: str, wandb_mode: bool = True, resume_run: str = None
     wandb.finish()
 
 
-if __name__ == "__main__":
+def collect_raw_data(model_id, wandb_mode, resume_run):
     model_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-
     # List available runs
     print("\nAvailable runs:")
     runs = list_available_runs("arc_easy")
@@ -603,5 +490,8 @@ if __name__ == "__main__":
     # To resume a specific run, uncomment and modify the following line:
     # resume_run = "arc_easy_250318_011026_LIME"  # Your previous run name
     resume_run = None
+    run_collect_d(model_id=model_id, wandb_mode=wandb_mode, resume_run=resume_run)
 
-    run_collect_d(model_id=model_id, wandb_mode=True, resume_run=resume_run)
+
+if __name__ == "__main__":
+    collect_raw_data(model_id, wandb_mode, resume_run)
