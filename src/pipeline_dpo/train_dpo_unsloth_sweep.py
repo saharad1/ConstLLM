@@ -1,6 +1,5 @@
+import argparse
 import os
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -63,8 +62,27 @@ def train_dpo_with_config(
         model.config.pad_token_id = tokenizer.pad_token_id
 
     # Load the DPO dataset with the specified similarity metric and threshold
-    train_path = dataset_path / "train_7617.jsonl"
-    eval_path = dataset_path / "eval_2176.jsonl"
+    # Find the train and eval files without relying on specific sample counts
+    def find_dataset_file(directory, prefix):
+        """Find a file with the given prefix in the directory, regardless of sample count in filename."""
+        # First try the exact name format (e.g., 'train.jsonl')
+        exact_path = directory / f"{prefix}.jsonl"
+        if exact_path.exists():
+            return exact_path
+
+        # Then try with sample count (e.g., 'train_7617.jsonl')
+        for file_path in directory.glob(f"{prefix}_*.jsonl"):
+            return file_path
+
+        # If no matching file found, raise an error
+        raise FileNotFoundError(f"No {prefix} dataset file found in {directory}")
+
+    train_path = find_dataset_file(dataset_path, "train")
+    eval_path = find_dataset_file(dataset_path, "eval")
+
+    print(f"Using train dataset: {train_path}")
+    print(f"Using eval dataset: {eval_path}")
+
     train_dataset = load_dpo_dataset(
         file_path=str(train_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold, include_scores=include_scores
     )
@@ -231,13 +249,39 @@ def run_sweep(
 
 
 if __name__ == "__main__":
-    dataset_path = Path(f"dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME")
-    # Example: Run sweep with cosine similarity
+    # Add argument parsing
+    parser = argparse.ArgumentParser(description="Run DPO training sweep with Unsloth")
+    parser.add_argument(
+        "--dataset_path",
+        type=str,
+        required=True,
+        help="Path to the dataset directory",
+    )
+    parser.add_argument("--model_name", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct", help="Name of the model to use")
+    parser.add_argument("--dataset_name", type=str, default="ecqa", help="Name of the dataset (e.g., ecqa, codah)")
+    parser.add_argument(
+        "--similarity_metric",
+        type=str,
+        default="cosine",
+        choices=["cosine", "spearman"],
+        help="Similarity metric to use (cosine or spearman)",
+    )
+    parser.add_argument("--diff_threshold", type=float, default=0.2, help="Threshold for filtering examples based on score difference")
+    parser.add_argument("--sweep_count", type=int, default=10, help="Number of sweeps to run")
+    parser.add_argument("--include_scores", action="store_true", help="Whether to include scores in the training data")
+
+    args = parser.parse_args()
+
+    # Convert dataset_path to Path object
+    dataset_path = Path(args.dataset_path)
+
+    # Run sweep with parsed arguments
     run_sweep(
         dataset_path=dataset_path,
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
-        dataset_name="ecqa",
-        similarity_metric="cosine",
-        diff_threshold=0.2,
-        sweep_count=10,
+        model_name=args.model_name,
+        dataset_name=args.dataset_name,
+        similarity_metric=args.similarity_metric,
+        diff_threshold=args.diff_threshold,
+        sweep_count=args.sweep_count,
+        include_scores=args.include_scores,
     )
