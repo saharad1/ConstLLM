@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.collect_data.comp_score import (
+from src.collect_data.comp_similarity_scores import (
     calculate_cosine_similarity,
     calculate_spearman_correlation,
 )
@@ -192,54 +192,39 @@ def compute_and_display_statistics(scenario_data_list):
     print("\n=== PER-SCENARIO STATISTICS ===")
 
     print("\nSpearman correlation:")
-    print("  Min values across scenarios:")
-    print(f"    Min of mins: {np.min(scenario_min_spearman):.4f}")
-    print(f"    Median of mins: {np.median(scenario_min_spearman):.4f}")
-    print(f"    Mean of mins: {np.mean(scenario_min_spearman):.4f}")
-    print(f"    Max of mins: {np.max(scenario_min_spearman):.4f}")
+    print("  Worst values across scenarios:")
+    print(f"    Mean of worst: {np.mean(scenario_min_spearman):.4f}")
 
     print("  Median values across scenarios:")
-    print(f"    Min of medians: {np.min(scenario_median_spearman):.4f}")
-    print(f"    Median of medians: {np.median(scenario_median_spearman):.4f}")
     print(f"    Mean of medians: {np.mean(scenario_median_spearman):.4f}")
-    print(f"    Max of medians: {np.max(scenario_median_spearman):.4f}")
+    # print(f"    Max of medians: {np.max(scenario_median_spearman):.4f}")
 
-    print("  Max values across scenarios:")
-    print(f"    Min of maxes: {np.min(scenario_max_spearman):.4f}")
-    print(f"    Median of maxes: {np.median(scenario_max_spearman):.4f}")
-    print(f"    Mean of maxes: {np.mean(scenario_max_spearman):.4f}")
-    print(f"    Max of maxes: {np.max(scenario_max_spearman):.4f}")
-
-    print("  Average values across scenarios:")
-    print(f"    Min average: {np.min(scenario_avg_spearman):.4f}")
-    print(f"    Median average: {np.median(scenario_avg_spearman):.4f}")
-    print(f"    Mean of averages: {np.mean(scenario_avg_spearman):.4f}")
-    print(f"    Max average: {np.max(scenario_avg_spearman):.4f}")
+    print("  Best values across scenarios:")
+    print(f"    Mean of best: {np.mean(scenario_max_spearman):.4f}")
+    # print(f"    Max of best: {np.max(scenario_max_spearman):.4f}")
 
     print("\nCosine similarity:")
-    print("  Min values across scenarios:")
-    print(f"    Min of mins: {np.min(scenario_min_cosine):.4f}")
-    print(f"    Median of mins: {np.median(scenario_min_cosine):.4f}")
-    print(f"    Mean of mins: {np.mean(scenario_min_cosine):.4f}")
-    print(f"    Max of mins: {np.max(scenario_min_cosine):.4f}")
+    print("  Worst values across scenarios:")
+    # print(f"    Min of mins: {np.min(scenario_min_cosine):.4f}")
+    # print(f"    Median of mins: {np.median(scenario_min_cosine):.4f}")
+    print(f"    Mean of worst: {np.mean(scenario_min_cosine):.4f}")
+    # print(f"    Max of mins: {np.max(scenario_min_cosine):.4f}")
 
     print("  Median values across scenarios:")
-    print(f"    Min of medians: {np.min(scenario_median_cosine):.4f}")
-    print(f"    Median of medians: {np.median(scenario_median_cosine):.4f}")
     print(f"    Mean of medians: {np.mean(scenario_median_cosine):.4f}")
-    print(f"    Max of medians: {np.max(scenario_median_cosine):.4f}")
+    # print(f"    Max of medians: {np.max(scenario_median_cosine):.4f}")
 
-    print("  Max values across scenarios:")
-    print(f"    Min of maxes: {np.min(scenario_max_cosine):.4f}")
-    print(f"    Median of maxes: {np.median(scenario_max_cosine):.4f}")
-    print(f"    Mean of maxes: {np.mean(scenario_max_cosine):.4f}")
-    print(f"    Max of maxes: {np.max(scenario_max_cosine):.4f}")
+    print("  Best values across scenarios:")
+    # print(f"    Min of maxes: {np.min(scenario_max_cosine):.4f}")
+    # print(f"    Median of maxes: {np.median(scenario_max_cosine):.4f}")
+    print(f"    Mean of best: {np.mean(scenario_max_cosine):.4f}")
+    # print(f"    Max of maxes: {np.max(scenario_max_cosine):.4f}")
 
-    print("  Average values across scenarios:")
-    print(f"    Min average: {np.min(scenario_avg_cosine):.4f}")
-    print(f"    Median average: {np.median(scenario_avg_cosine):.4f}")
-    print(f"    Mean of averages: {np.mean(scenario_avg_cosine):.4f}")
-    print(f"    Max average: {np.max(scenario_avg_cosine):.4f}")
+    # print("  Average values across scenarios:")
+    # print(f"    Min average: {np.min(scenario_avg_cosine):.4f}")
+    # print(f"    Median average: {np.median(scenario_avg_cosine):.4f}")
+    # print(f"    Mean of averages: {np.mean(scenario_avg_cosine):.4f}")
+    # print(f"    Max average: {np.max(scenario_avg_cosine):.4f}")
 
     return spearman_array, cosine_array
 
@@ -249,5 +234,5 @@ if __name__ == "__main__":
     dataset_path = Path("dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/test_1089.jsonl")
 
     # Analyze both similarity metrics
-    scenario_data_list = analyze_dataset_similarities(dataset_path)
-    create_scenarios_data(scenario_data_list)
+    scenario_data_list = create_scenarios_data(dataset_path)
+    compute_and_display_statistics(scenario_data_list)

@@ -124,8 +124,8 @@ def run_collect_data(
     last_model_reload = 0
     last_memory_check = 0
     success_sum = 0
-    spearman_sums = {"best": 0, "worst": 0}
-    cosine_sums = {"best": 0, "worst": 0}
+    spearman_sums = {"best": 0, "worst": 0, "median": 0}
+    cosine_sums = {"best": 0, "worst": 0, "median": 0}
 
     # Set up attribution methods
     methods_params_decision, methods_params_explanation = get_attribution_methods_params(attribution_method_name)

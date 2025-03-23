@@ -203,7 +203,8 @@ def eval_trained_dpo(
         try:
             # Track time for this specific scenario (individual timing)
             start_time_scenario = time.time()
-
+            pre_generated_decision_output = scenario_item.get("decision_output")
+            pre_generated_decision_attributions = scenario_item.get("decision_attributions")
             # Process the scenario directly using the core processor
             scenario_res = process_scenario(
                 llm_analyzer=llm_analyzer,
@@ -211,6 +212,8 @@ def eval_trained_dpo(
                 methods_params_decision=methods_params_decision,
                 methods_params_explanation=methods_params_explanation,
                 num_dec_exp=num_dec_exp,
+                pre_generated_decision_output=pre_generated_decision_output,
+                pre_generated_decision_attributions=pre_generated_decision_attributions,
             )
 
             # Ensure scenario_id is set

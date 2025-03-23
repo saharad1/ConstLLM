@@ -48,6 +48,9 @@ def process_scenario(
     methods_params_explanation,
     num_dec_exp,
     custom_logger=None,
+    pre_generated_decision_output=None,
+    pre_generated_decision_attributions=None,
+    pre_generated_explanation_outputs=None,
 ) -> ScenarioScores:
     """
     Process a single scenario with the given analyzer, methods, and parameters.
@@ -60,6 +63,8 @@ def process_scenario(
         methods_params_explanation: Parameters for the explanation phase
         num_dec_exp: Number of explanation generations to try
         custom_logger: Optional custom logger for tracking progress
+        pre_generated_decision_output: Optional pre-generated output for the decision phase
+        pre_generated_explanation_outputs: Optional list of pre-generated outputs for explanation phases
 
     Returns:
         ScenarioScores object with the results
@@ -90,6 +95,8 @@ def process_scenario(
         prompt=decision_prompt_template,
         methods_params=methods_params_decision,
         phase="decision",
+        pre_generated_output=pre_generated_decision_output,
+        pre_generated_attributions=pre_generated_decision_attributions,
     )
 
     decision_attributions = decision_result.methods_scores[current_method]
@@ -98,6 +105,11 @@ def process_scenario(
     # Multiple explanation generation
     for i in range(num_dec_exp):
         log_info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
+
+        # Get pre-generated explanation output if available
+        current_pre_generated_explanation = None
+        if pre_generated_explanation_outputs and i < len(pre_generated_explanation_outputs):
+            current_pre_generated_explanation = pre_generated_explanation_outputs[i]
 
         # Explanation Phase
         explanation_prompt_template = custom_apply_chat_template(
@@ -112,6 +124,7 @@ def process_scenario(
             prompt=explanation_prompt_template,
             methods_params=methods_params_explanation,
             phase="explanation",
+            pre_generated_output=current_pre_generated_explanation,
         )
 
         explanation_outputs.append(explanation_output)

@@ -8,15 +8,16 @@
 set -e
 
 # GPU ID to use
-GPU_ID=1
+# Set the GPU to use
+export CUDA_VISIBLE_DEVICES=0
 
 # Default values
 MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 DATASET="ecqa"
 ATTRIBUTION_METHOD="LIME"
-NUM_EXPLANATIONS=5
+NUM_EXPLANATIONS=10
 SUBSET=""
-USE_WANDB=false
+USE_WANDB=true
 RESUME_RUN=""
 TEMPERATURE=0.7
 
@@ -99,9 +100,7 @@ if [[ -z "$CONDA_DEFAULT_ENV" || "$CONDA_DEFAULT_ENV" != "ConstLLM" ]]; then
     conda activate ConstLLM || { echo "Failed to activate ConstLLM environment. Exiting."; exit 1; }
 fi
 
-# Set the GPU to use
-export CUDA_VISIBLE_DEVICES=$GPU_ID
-echo "Using GPU: $GPU_ID"
+
 
 # Build command
 CMD="python -m src.collect_data.run_collect_data --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE"
