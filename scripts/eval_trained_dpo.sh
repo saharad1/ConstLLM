@@ -4,47 +4,52 @@
 export CUDA_VISIBLE_DEVICES="1"  # Use GPU 1 for evaluation
 
 # Default paths - adjust these as needed
-MODEL_PATH="trained_models/ecqa_models/LLama-instruct-8b/ecqa_250320_170948/final-model"
-DATASET_PATH="data/test_datasets/ecqa_test.jsonl"
-OUTPUT_DIR="data/eval_results"
+MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr4.21e-05_beta0.16_250322_214600/final-model"
+DATASET_PATH="dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/test_1089.jsonl"
+# OUTPUT_DIR="data/eval_results"
+
 
 # Attribution method and other parameters
 ATTRIBUTION_METHOD="LIME"
 NUM_DEC_EXP=5
 TEMPERATURE=0.7
+SUBSET=""
+
+# Default is to disable wandb (set to false)
+USE_WANDB=true
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --model_path)
+    --model_path|-m)
       MODEL_PATH="$2"
       shift 2
       ;;
-    --dataset_path)
+    --dataset_path|-d)
       DATASET_PATH="$2"
       shift 2
       ;;
-    --attribution_method)
+    --attribution_method|-a)
       ATTRIBUTION_METHOD="$2"
       shift 2
       ;;
-    --num_dec_exp)
+    --num_dec_exp|-n)
       NUM_DEC_EXP="$2"
       shift 2
       ;;
-    --temperature)
+    --temperature|-t)
       TEMPERATURE="$2"
       shift 2
       ;;
-    --output_dir)
-      OUTPUT_DIR="$2"
+    --output_dir|-o)
+      OUTPUT_DIR="--output_dir $2"
       shift 2
       ;;
-    --no_wandb)
-      NO_WANDB="--no_wandb"
+    --wandb|-w)
+      USE_WANDB=true  # Enable wandb
       shift
       ;;
-    --subset)
+    --subset|-s)
       SUBSET="--subset $2"
       shift 2
       ;;
@@ -58,6 +63,7 @@ done
 echo "Evaluating model: $MODEL_PATH"
 echo "Using dataset: $DATASET_PATH"
 echo "Attribution method: $ATTRIBUTION_METHOD"
+echo "WandB logging: $([ "$USE_WANDB" = true ] && echo "enabled" || echo "disabled")"
 
 # Run the evaluation script
 python -m src.test_evaluations.eval_trained_dpo \
@@ -66,7 +72,7 @@ python -m src.test_evaluations.eval_trained_dpo \
   --attribution_method "$ATTRIBUTION_METHOD" \
   --num_dec_exp "$NUM_DEC_EXP" \
   --temperature "$TEMPERATURE" \
-  --output_dir "$OUTPUT_DIR" \
-  $NO_WANDB $SUBSET
+  --wandb "$USE_WANDB" \
+  $SUBSET $OUTPUT_DIR
 
 echo "Evaluation completed!"

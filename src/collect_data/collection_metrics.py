@@ -1,6 +1,7 @@
 """
 Module for calculating and tracking metrics in the data collection process.
 """
+
 import numpy as np
 
 
@@ -57,27 +58,35 @@ def calculate_metrics(scenario_res, success_sum, iteration, spearman_sums, cosin
     # Spearman correlations
     spearman_best_score = np.max(scenario_res.spearman_scores)
     spearman_worst_score = np.min(scenario_res.spearman_scores)
+    spearman_median_score = np.median(scenario_res.spearman_scores)
     spearman_sums["best"] += spearman_best_score
     spearman_best_score_avg = spearman_sums["best"] / iteration
     spearman_sums["worst"] += spearman_worst_score
     spearman_worst_score_avg = spearman_sums["worst"] / iteration
+    spearman_sums["median"] += spearman_median_score
+    spearman_median_score_avg = spearman_sums["median"] / iteration
 
     # Cosine similarities
     cosine_best_score = np.max(scenario_res.cosine_scores)
     cosine_worst_score = np.min(scenario_res.cosine_scores)
+    cosine_median_score = np.median(scenario_res.cosine_scores)
     cosine_sums["best"] += cosine_best_score
     cosine_best_score_avg = cosine_sums["best"] / iteration
     cosine_sums["worst"] += cosine_worst_score
     cosine_worst_score_avg = cosine_sums["worst"] / iteration
+    cosine_sums["median"] += cosine_median_score
+    cosine_median_score_avg = cosine_sums["median"] / iteration
 
     # Prepare metrics dictionary
     metrics = {
-        # General metrics
-        "accuracy": accuracy_label,
-        "spearman_best_score_avg": spearman_best_score_avg,
-        "spearman_worst_score_avg": spearman_worst_score_avg,
-        "cosine_best_score_avg": cosine_best_score_avg,
-        "cosine_worst_score_avg": cosine_worst_score_avg,
+        # Tracking general metrics
+        "tracking/accuracy": accuracy_label,
+        "tracking/spearman_best_score_avg": spearman_best_score_avg,
+        "tracking/spearman_worst_score_avg": spearman_worst_score_avg,
+        "tracking/spearman_median_score_avg": spearman_median_score_avg,
+        "tracking/cosine_best_score_avg": cosine_best_score_avg,
+        "tracking/cosine_worst_score_avg": cosine_worst_score_avg,
+        "tracking/cosine_median_score_avg": cosine_median_score_avg,
         # Scenario metrics
         "scenario/scenario_id": scenario_res.scenario_id,
         # Spearman metrics
@@ -85,11 +94,13 @@ def calculate_metrics(scenario_res, success_sum, iteration, spearman_sums, cosin
         "scenario/spearman/std": np.std(scenario_res.spearman_scores, ddof=1),
         "scenario/spearman/best_score": spearman_best_score,
         "scenario/spearman/worst_score": spearman_worst_score,
+        "scenario/spearman/median": spearman_median_score,
         # Cosine metrics
         "scenario/cosine/mean": np.mean(scenario_res.cosine_scores),
         "scenario/cosine/std": np.std(scenario_res.cosine_scores, ddof=1),
         "scenario/cosine/best_score": cosine_best_score,
         "scenario/cosine/worst_score": cosine_worst_score,
+        "scenario/cosine/median": cosine_median_score,
     }
 
     return metrics, success_sum

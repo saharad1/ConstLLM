@@ -67,14 +67,34 @@ def eval_trained_dpo(
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Extract model name and dataset name for run naming
+    # Get both parent and grandparent directory names for better identification
     model_name = model_path.parent.name
+    grandparent_name = model_path.parent.parent.name
+
+    # Extract dataset name (e.g., ecqa, codah) from the dataset path
+    # First try to extract from the path structure
+    dataset_path_str = str(dataset_path)
+    if "ecqa" in dataset_path_str.lower():
+        dataset_type = "ecqa"
+    elif "codah" in dataset_path_str.lower():
+        dataset_type = "codah"
+    elif "cqa" in dataset_path_str.lower():
+        dataset_type = "cqa"
+    else:
+        # Fallback to using the stem of the filename
+        dataset_type = dataset_path.stem.split("_")[0]
+
+    # Get the full dataset filename for reference
     dataset_name = dataset_path.stem
 
     # Set up run environment
     if output_dir is None:
-        base_output_dir = Path("data") / "eval_results" / model_name
+        # Use clean dataset type (ecqa/codah) and model name for directory structure
+        base_output_dir = Path("data") / f"{dataset_type}_eval_results" / grandparent_name / model_name
     else:
         base_output_dir = Path(output_dir)
+
+    print(f"Output directory: {base_output_dir}")
 
     # Create a unique run name
     timestamp = time.strftime("%y%m%d_%H%M%S")
@@ -88,19 +108,27 @@ def eval_trained_dpo(
     jsonl_filename = output_dir / f"{run_name}_results.jsonl"
     progress_file = output_dir / "progress.json"
 
-    # Set up wandb if enabled
+    # Initialize wandb if enabled
     if use_wandb:
-        wandb.init(
-            project="constllm_eval_dpo",
-            name=run_name,
-            config={
-                "model_path": str(model_path),
-                "dataset_path": str(dataset_path),
-                "attribution_method": attribution_method_name,
-                "num_dec_exp": num_dec_exp,
-                "temperature": temperature,
-            },
-        )
+        print("Initializing WandB...")
+        try:
+            # Initialize wandb
+            wandb.init(
+                project="constllm_eval_dpo",
+                name=run_name,
+                config={
+                    "model_path": str(model_path),
+                    "dataset_path": str(dataset_path),
+                    "attribution_method": attribution_method_name,
+                    "num_dec_exp": num_dec_exp,
+                    "temperature": temperature,
+                },
+            )
+            print("WandB initialized successfully!")
+        except Exception as e:
+            print(f"Error initializing WandB: {str(e)}")
+            print("Continuing without WandB logging...")
+            use_wandb = False
 
     # Load dataset from file
     print(f"Loading dataset from: {dataset_path}")
@@ -131,7 +159,7 @@ def eval_trained_dpo(
     processed_scenarios = set()
     progress_data = {
         "total_scenarios": len(dataset),
-        "processed_scenarios": 0,
+        "processed_count": 0,
         "failed_scenarios": [],
         "success_rate": 0.0,
         "avg_spearman_best": 0.0,
@@ -140,6 +168,10 @@ def eval_trained_dpo(
         "avg_cosine_worst": 0.0,
         "avg_spearman_median": 0.0,
         "avg_cosine_median": 0.0,
+        "start_time": time.time(),
+        "elapsed_time": 0.0,
+        "estimated_remaining_time": 0.0,
+        "completion_percentage": 0.0,
     }
 
     # Initialize tracking variables
@@ -154,14 +186,8 @@ def eval_trained_dpo(
     print(f"Loading model from: {model_path}")
     llm_analyzer = LLMAnalyzer(model_id=str(model_path), temperature=temperature)
 
-    # Store original parameters for reset after retries
-    original_params = {
-        "model_id": str(model_path),
-        "decision": methods_params_decision.copy(),
-        "explanation": methods_params_explanation.copy(),
-    }
-
     # Process scenarios
+    start_time_total = time.time()
     for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
         # Get scenario ID (ensure it exists)
         if hasattr(scenario_item, "scenario_id"):
@@ -175,6 +201,9 @@ def eval_trained_dpo(
             continue
 
         try:
+            # Track time for this specific scenario (individual timing)
+            start_time_scenario = time.time()
+
             # Process the scenario directly using the core processor
             scenario_res = process_scenario(
                 llm_analyzer=llm_analyzer,
@@ -194,11 +223,6 @@ def eval_trained_dpo(
             # Mark as processed
             processed_scenarios.add(scenario_id)
 
-            # Update progress
-            failed_scenarios = progress_data.get("failed_scenarios", [])
-            progress_data = update_progress(progress_data, processed_scenarios, failed_scenarios)
-            save_progress(progress_file, progress_data)
-
             # Calculate metrics
             metrics, success_sum = calculate_metrics(
                 scenario_res=scenario_res,
@@ -208,16 +232,32 @@ def eval_trained_dpo(
                 cosine_sums=cosine_sums,
             )
 
-            # Calculate median values and add to sums
-            if len(scenario_res.spearman_scores) > 0:
-                spearman_median = np.median(scenario_res.spearman_scores)
-                cosine_median = np.median(scenario_res.cosine_scores)
-                spearman_sums["median"] += spearman_median
-                cosine_sums["median"] += cosine_median
+            # Calculate and add timing information
+            end_time_scenario = time.time()
+            scenario_duration = end_time_scenario - start_time_scenario
 
-                # Add median metrics to wandb logging
-                metrics["spearman/median"] = spearman_median
-                metrics["cosine/median"] = cosine_median
+            # Add timing metrics (per-scenario timing for detailed analysis)
+            metrics["scenario/duration_seconds"] = scenario_duration
+
+            # Update progress data with the latest metrics
+            progress_data.update(
+                {
+                    "success_rate": (success_sum / iteration) * 100,
+                    "avg_spearman_best": spearman_sums["best"] / iteration,
+                    "avg_spearman_median": spearman_sums["median"] / iteration,
+                    "avg_spearman_worst": spearman_sums["worst"] / iteration,
+                    "avg_cosine_best": cosine_sums["best"] / iteration,
+                    "avg_cosine_median": cosine_sums["median"] / iteration,
+                    "avg_cosine_worst": cosine_sums["worst"] / iteration,
+                }
+            )
+
+            # Update progress tracking information
+            failed_scenarios = progress_data.get("failed_scenarios", [])
+            progress_data = update_progress(progress_data, processed_scenarios, failed_scenarios)
+
+            # Save the updated progress data
+            save_progress(progress_file, progress_data)
 
             # Log metrics
             if use_wandb:
@@ -238,12 +278,10 @@ def eval_trained_dpo(
             continue
 
     # Finalize
-    print(f"Evaluation completed. Processed {len(processed_scenarios)} scenarios.")
-
-    # Update final averages for median values
-    if len(processed_scenarios) > 0:
-        progress_data["avg_spearman_median"] = spearman_sums["median"] / len(processed_scenarios)
-        progress_data["avg_cosine_median"] = cosine_sums["median"] / len(processed_scenarios)
+    end_time_total = time.time()
+    total_duration = end_time_total - start_time_total
+    print(f"Evaluation completed. Processed {len(processed_scenarios)} scenarios in {total_duration:.2f} seconds.")
+    print(f"Average time per scenario: {total_duration / len(processed_scenarios):.2f} seconds.")
 
     save_progress(progress_file, progress_data)
 
@@ -260,8 +298,41 @@ def eval_trained_dpo(
     print(f"Average Cosine (median): {progress_data.get('avg_cosine_median', 0):.4f}")
     print(f"Average Cosine (worst): {progress_data.get('avg_cosine_worst', 0):.4f}")
 
+    # Log summary metrics to wandb
     if use_wandb:
-        wandb.finish()
+        try:
+            summary_metrics = {
+                "summary/total_scenarios": len(dataset),
+                "summary/processed_scenarios": len(processed_scenarios),
+                "summary/failed_scenarios": len(progress_data.get("failed_scenarios", [])),
+                "summary/success_rate": progress_data.get("success_rate", 0),
+                "summary/avg_spearman_best": progress_data.get("avg_spearman_best", 0),
+                "summary/avg_spearman_median": progress_data.get("avg_spearman_median", 0),
+                "summary/avg_spearman_worst": progress_data.get("avg_spearman_worst", 0),
+                "summary/avg_cosine_best": progress_data.get("avg_cosine_best", 0),
+                "summary/avg_cosine_median": progress_data.get("avg_cosine_median", 0),
+                "summary/avg_cosine_worst": progress_data.get("avg_cosine_worst", 0),
+                "summary/total_duration_seconds": total_duration,
+                "summary/avg_scenario_duration_seconds": total_duration / len(processed_scenarios) if processed_scenarios else 0,
+            }
+            # print("Logging summary metrics to WandB...")
+            # wandb.log(summary_metrics)
+            # print("Successfully logged summary metrics to WandB")
+
+            # Also set these as wandb summary values (appear at the top of the run page)
+            for key, value in summary_metrics.items():
+                wandb.run.summary[key] = value
+            print("Successfully set WandB summary values")
+        except Exception as e:
+            print(f"Error logging summary metrics to WandB: {str(e)}")
+
+    if use_wandb:
+        try:
+            print("Finishing WandB run...")
+            wandb.finish()
+            print("WandB run finished successfully")
+        except Exception as e:
+            print(f"Error finishing WandB run: {str(e)}")
 
     return output_dir
 
@@ -273,11 +344,14 @@ if __name__ == "__main__":
     parser.add_argument("--attribution_method", type=str, default="LIME", help="Attribution method to use")
     parser.add_argument("--num_dec_exp", type=int, default=5, help="Number of explanations per decision")
     parser.add_argument("--subset", type=int, default=None, help="Size of dataset subset to use")
-    parser.add_argument("--no_wandb", action="store_true", help="Disable wandb logging")
+    parser.add_argument("--wandb", type=str, default="false", help="Enable/disable wandb logging (true/false)")
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for model generation")
     parser.add_argument("--output_dir", type=str, default=None, help="Custom output directory for results")
 
     args = parser.parse_args()
+
+    # Convert wandb string to boolean
+    use_wandb = args.wandb.lower() == "true"
 
     eval_trained_dpo(
         model_path=args.model_path,
@@ -285,7 +359,7 @@ if __name__ == "__main__":
         attribution_method_name=args.attribution_method,
         num_dec_exp=args.num_dec_exp,
         subset=args.subset,
-        use_wandb=not args.no_wandb,
+        use_wandb=use_wandb,
         temperature=args.temperature,
         output_dir=args.output_dir,
     )
