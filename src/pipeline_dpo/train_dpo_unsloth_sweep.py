@@ -9,6 +9,7 @@ from transformers import AutoTokenizer, EarlyStoppingCallback
 from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel, PatchDPOTrainer, is_bfloat16_supported
 
+PatchDPOTrainer()
 import wandb
 from src.pipeline_dpo.prepare_dataset_to_dpo import load_dpo_dataset
 from src.utils.general import print_gpu_info
@@ -23,7 +24,8 @@ def train_dpo_with_config(
     run_name: str,
     dataset_name: str,
     similarity_metric: str,
-    diff_threshold: float = 0,
+    diff_threshold_train: float = None,
+    diff_threshold_eval: float = None,
     include_scores=False,
 ) -> DPOTrainer:
     """Run a single DPO training with the given config parameters."""
@@ -32,7 +34,8 @@ def train_dpo_with_config(
     wandb.config.update(
         {
             "similarity_metric": similarity_metric,
-            "diff_threshold": diff_threshold,
+            "diff_threshold_train": diff_threshold_train,
+            "diff_threshold_eval": diff_threshold_eval,
             "dataset": dataset_name,
             "model": model_name,
         },
@@ -47,9 +50,9 @@ def train_dpo_with_config(
 
     model = FastLanguageModel.get_peft_model(
         model=model,
-        r=16,
+        r=64,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        lora_alpha=32,
+        lora_alpha=64,
         lora_dropout=0,
         bias="none",
         use_gradient_checkpointing="unsloth",
@@ -84,10 +87,10 @@ def train_dpo_with_config(
     print(f"Using eval dataset: {eval_path}")
 
     train_dataset = load_dpo_dataset(
-        file_path=str(train_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold, include_scores=include_scores
+        file_path=str(train_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold_train, include_scores=include_scores
     )
     eval_dataset = load_dpo_dataset(
-        file_path=str(eval_path), similarity_metric=similarity_metric, diff_threshold=None, include_scores=include_scores
+        file_path=str(eval_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold_eval, include_scores=include_scores
     )
     print(f"Number of train samples: {len(train_dataset)}")
     print(f"Number of eval samples: {len(eval_dataset)}")
@@ -118,7 +121,7 @@ def train_dpo_with_config(
         weight_decay=config.weight_decay,
         eval_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="rewards/margins",  # Use the metric for best model (no need to add eval/)
+        metric_for_best_model="rewards/chosen",  # Use the metric for best model (no need to add eval/)
         greater_is_better=True,
     )
 
@@ -134,7 +137,9 @@ def train_dpo_with_config(
     )
 
     # Start training
-    print(f" Starting DPO training with {similarity_metric} similarity (diff threshold: {diff_threshold})...")
+    print(
+        f" Starting DPO training with {similarity_metric} similarity (diff threshold: {diff_threshold_train} (train), {diff_threshold_eval} (eval))..."
+    )
     trainer.train()
     print(" Training completed.")
 
@@ -152,7 +157,8 @@ def run_sweep(
     include_scores=False,
     dataset_name="ecqa",  # ecqa or codah
     similarity_metric="cosine",  # "spearman" or "cosine"
-    diff_threshold=0.2,
+    diff_threshold_train=0.2,
+    diff_threshold_eval=0.2,
     sweep_count=10,
 ):
     """
@@ -163,21 +169,22 @@ def run_sweep(
         include_scores: Whether to include scores in the training data
         dataset_name: Name of the dataset (codah, ecqa)
         similarity_metric: Which similarity metric to use (spearman, cosine)
-        diff_threshold: Threshold for filtering examples based on score difference
+        diff_threshold_train: Threshold for filtering examples based on score difference
+        diff_threshold_eval: Threshold for filtering examples based on score difference
         sweep_count: Number of sweeps to run
     """
     # Define sweep configuration
     sweep_config = {
         "method": "bayes",  # Bayesian optimization
-        "metric": {"name": "eval/rewards/margins", "goal": "maximize"},
+        "metric": {"name": "eval/rewards/chosen", "goal": "maximize"},
         "parameters": {
-            "learning_rate": {"min": 1e-5, "max": 8e-5, "distribution": "log_uniform_values"},
-            "beta": {"min": 0.08, "max": 0.18, "distribution": "uniform"},
+            "learning_rate": {"min": 1e-7, "max": 5e-6, "distribution": "log_uniform_values"},
+            "beta": {"min": 0.05, "max": 0.3, "distribution": "uniform"},
             "per_device_train_batch_size": {"values": [32]},
             "gradient_accumulation_steps": {"values": [16]},
             "warmup_ratio": {"min": 0, "max": 0.1, "distribution": "uniform"},
             "weight_decay": {"min": 0.005, "max": 0.015, "distribution": "uniform"},
-            "num_train_epochs": {"values": [30]},
+            "num_train_epochs": {"values": [20]},
             "lr_scheduler_type": {"values": ["cosine", "linear"]},
         },
     }
@@ -186,7 +193,7 @@ def run_sweep(
     sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}_sweep"
 
     # Include fixed parameters in the sweep name
-    sweep_config_name = f"{similarity_metric}_diff{diff_threshold}_bs{sweep_config['parameters']['per_device_train_batch_size']['values'][0]}_ep{sweep_config['parameters']['num_train_epochs']['values'][0]}"
+    sweep_config_name = f"{similarity_metric}_diff{diff_threshold_train}_bs{sweep_config['parameters']['per_device_train_batch_size']['values'][0]}_ep{sweep_config['parameters']['num_train_epochs']['values'][0]}"
 
     # Initialize the sweep with WandB
     sweep_id = wandb.sweep(sweep=sweep_config, project=sweep_project)
@@ -214,7 +221,8 @@ def run_sweep(
         wandb.config.update(
             {
                 "similarity_metric": similarity_metric,
-                "diff_threshold": diff_threshold,
+                "diff_threshold_train": diff_threshold_train,
+                "diff_threshold_eval": diff_threshold_eval,
                 "dataset": dataset_name,
                 "model": model_name,
             },
@@ -232,7 +240,8 @@ def run_sweep(
             run_name=run_name,  # Use the timestamp run name
             dataset_name=dataset_name,
             similarity_metric=similarity_metric,
-            diff_threshold=diff_threshold,
+            diff_threshold_train=diff_threshold_train,
+            diff_threshold_eval=diff_threshold_eval,
             include_scores=include_scores,
         )
 
@@ -243,7 +252,7 @@ def run_sweep(
     print(f"Starting sweep with {sweep_count} runs:")
     print(f"\tDataset: {dataset_name}")
     print(f"\tSimilarity metric: {similarity_metric}")
-    print(f"\tDifference threshold: {diff_threshold}")
+    print(f"\tDifference threshold: {diff_threshold_train} (train), {diff_threshold_eval} (eval)")
 
     wandb.agent(sweep_id, function=sweep_train, count=sweep_count)
 
@@ -266,7 +275,12 @@ if __name__ == "__main__":
         choices=["cosine", "spearman"],
         help="Similarity metric to use (cosine or spearman)",
     )
-    parser.add_argument("--diff_threshold", type=float, default=0.2, help="Threshold for filtering examples based on score difference")
+    parser.add_argument(
+        "--diff_threshold_train", type=float, default=0.2, help="Threshold for filtering examples based on score difference"
+    )
+    parser.add_argument(
+        "--diff_threshold_eval", type=float, default=None, help="Threshold for filtering examples based on score difference"
+    )
     parser.add_argument("--sweep_count", type=int, default=10, help="Number of sweeps to run")
     parser.add_argument("--include_scores", action="store_true", help="Whether to include scores in the training data")
 
@@ -281,7 +295,8 @@ if __name__ == "__main__":
         model_name=args.model_name,
         dataset_name=args.dataset_name,
         similarity_metric=args.similarity_metric,
-        diff_threshold=args.diff_threshold,
+        diff_threshold_train=args.diff_threshold_train,
+        diff_threshold_eval=args.diff_threshold_eval,
         sweep_count=args.sweep_count,
         include_scores=args.include_scores,
     )

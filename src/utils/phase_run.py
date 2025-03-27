@@ -54,13 +54,19 @@ def run_phase(llm_analyzer, prompt, methods_params, phase="decision", pre_genera
         if isinstance(pre_generated_attributions, LLMAnalysisRes):
             result = pre_generated_attributions
         else:
-            # If it's just the attribution scores, create an LLMAnalysisRes object
-            # Assuming the first key in methods_params is the method name
-            method_name = next(iter(methods_params))
+            # If it's not an LLMAnalysisRes object, we need to create one
+            methods_scores = {}
 
-            # Create a methods_scores dictionary with the method name as key
-            # Assuming pre_generated_attributions is a list of attribution scores
-            methods_scores = {method_name: pre_generated_attributions}
+            # Handle different possible formats of pre_generated_attributions
+            if isinstance(pre_generated_attributions, dict):
+                # If it's already a dictionary with method names as keys
+                methods_scores = pre_generated_attributions
+            else:
+                # Assuming the first key in methods_params is the method name
+                method_name = next(iter(methods_params))
+
+                # Create a methods_scores dictionary with the method name as key
+                methods_scores = {method_name: pre_generated_attributions}
 
             # Create the LLMAnalysisRes object
             result = LLMAnalysisRes(input_text=prompt, target=output, methods_scores=methods_scores)

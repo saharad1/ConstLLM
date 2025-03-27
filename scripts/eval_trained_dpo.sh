@@ -4,7 +4,7 @@
 export CUDA_VISIBLE_DEVICES="1"  # Use GPU 1 for evaluation
 
 # Default paths - adjust these as needed
-MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr4.21e-05_beta0.16_250322_214600/final-model"
+MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr5.57e-05_beta0.10_250323_193605/final-model"
 DATASET_PATH="dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/test_1089.jsonl"
 # OUTPUT_DIR="data/eval_results"
 

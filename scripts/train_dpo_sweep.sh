@@ -12,7 +12,9 @@ python -m src.pipeline_dpo.train_dpo_unsloth_sweep \
   --model_name "meta-llama/Meta-Llama-3.1-8B-Instruct" \
   --dataset_name "ecqa" \
   --similarity_metric "cosine" \
-  --diff_threshold 0.2 \
-  --sweep_count 10
+  --diff_threshold_train 0.2 \
+  --diff_threshold_eval 0.2 \
+  --sweep_count 10 \
+  --include_scores
 
 echo "DPO training sweep completed!"
