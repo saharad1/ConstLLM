@@ -66,6 +66,7 @@ def run_collect_data(
     use_wandb=True,
     resume_run=None,
     temperature=0.7,
+    base_seed=42,
 ):
     """
     Run the data collection process for a given model and dataset.
@@ -79,6 +80,7 @@ def run_collect_data(
         use_wandb: Whether to use wandb for logging
         resume_run: Optional name of a run to resume
         temperature: Temperature for model generation (default: 0.7)
+        base_seed: Base seed for reproducible experiments (default: 42)
     """
 
     # Set up signal handler for graceful termination
@@ -130,8 +132,15 @@ def run_collect_data(
     # Set up attribution methods
     methods_params_decision, methods_params_explanation = get_attribution_methods_params(attribution_method_name)
 
-    # Initialize LLM analyzer
-    llm_analyzer = LLMAnalyzer(model_id, temperature=temperature)
+    # Initialize LLM analyzer with the model
+    print(f"Loading model: {model_id}")
+    llm_analyzer = LLMAnalyzer(model_id=model_id, temperature=temperature)
+
+    # Compute deterministic seeds from the base seed for each generation
+    print(f"Using base seed: {base_seed}")
+    # Create sequential seeds for each explanation generation
+    generation_seeds = [base_seed + i for i in range(num_dec_exp)]
+    print(f"Generated seeds for explanations: {generation_seeds}")
 
     # Store original parameters for reset after retries
     original_params = {
@@ -176,6 +185,7 @@ def run_collect_data(
             methods_params_decision=methods_params_decision,
             methods_params_explanation=methods_params_explanation,
             num_dec_exp=num_dec_exp,
+            generation_seeds=generation_seeds,
             original_params=original_params,
             iteration=iteration,
         )
@@ -242,6 +252,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_wandb", action="store_true", help="Disable wandb logging")
     parser.add_argument("--resume_run", type=str, help="Name of run to resume")
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for model generation")
+    parser.add_argument("--seed", type=int, default=42, help="Base seed for reproducible experiments")
 
     args = parser.parse_args()
 
@@ -254,4 +265,5 @@ if __name__ == "__main__":
         use_wandb=not args.no_wandb,
         resume_run=args.resume_run,
         temperature=args.temperature,
+        base_seed=args.seed,
     )

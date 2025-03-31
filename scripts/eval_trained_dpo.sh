@@ -28,6 +28,7 @@ ATTRIBUTION_METHOD="LIME"
 NUM_DEC_EXP=5
 TEMPERATURE=0.7
 SUBSET=""
+SEED=42
 
 # Default is to disable wandb (set to false)
 USE_WANDB=true
@@ -77,6 +78,10 @@ while [[ $# -gt 0 ]]; do
       SUBSET="--subset $2"
       shift 2
       ;;
+    --seed)
+      SEED="$2"
+      shift 2
+      ;;
     --is_model_id)
       IS_MODEL_ID="--is_model_id"
       shift
@@ -97,6 +102,7 @@ echo "Using dataset: $DATASET_PATH"
 echo "Attribution method: $ATTRIBUTION_METHOD"
 echo "WandB logging: $([ "$USE_WANDB" = true ] && echo "enabled" || echo "disabled")"
 echo "Model type: $([ -n "$IS_MODEL_ID" ] && echo "HuggingFace model ID" || echo "Local model path")"
+echo "Base seed: $SEED"
 
 # Run the evaluation script
 python -m src.test_evaluations.eval_trained_dpo \
@@ -106,6 +112,7 @@ python -m src.test_evaluations.eval_trained_dpo \
   --num_dec_exp "$NUM_DEC_EXP" \
   --temperature "$TEMPERATURE" \
   --wandb "$USE_WANDB" \
+  --seed "$SEED" \
   $SUBSET $OUTPUT_DIR $IS_MODEL_ID
 
 echo "Evaluation completed!"

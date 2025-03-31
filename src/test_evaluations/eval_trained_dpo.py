@@ -36,6 +36,7 @@ def eval_trained_dpo(
     temperature=0.7,
     output_dir=None,
     is_model_id=False,
+    base_seed=42,
 ):
     """
     Evaluate a trained DPO model on a test dataset by computing attributions.
@@ -50,6 +51,7 @@ def eval_trained_dpo(
         temperature: Temperature for model generation
         output_dir: Optional custom output directory
         is_model_id: If True, model_path is treated as a HuggingFace model ID instead of a local path
+        base_seed: Base seed for reproducible experiments, default is 42
     """
     # Convert paths to Path objects if they're strings and not a model ID
     if not is_model_id:
@@ -201,6 +203,12 @@ def eval_trained_dpo(
     model_path_str = str(model_path)
     llm_analyzer = LLMAnalyzer(model_id=model_path_str, temperature=temperature)
 
+    # Compute deterministic seeds from the base seed for each generation
+    print(f"Using base seed: {base_seed}")
+    # Create sequential seeds for each explanation generation
+    generation_seeds = [base_seed + i for i in range(num_dec_exp)]
+    print(f"Generated seeds for explanations: {generation_seeds}")
+
     # Process scenarios
     start_time_total = time.time()
     for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
@@ -229,6 +237,7 @@ def eval_trained_dpo(
                 num_dec_exp=num_dec_exp,
                 pre_generated_decision_output=pre_generated_decision_output,
                 pre_generated_decision_attributions=pre_generated_decision_attributions,
+                generation_seeds=generation_seeds,  # Pass the seeds to process_scenario
             )
 
             # Ensure scenario_id is set
@@ -366,6 +375,7 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for model generation")
     parser.add_argument("--output_dir", type=str, default=None, help="Custom output directory for results")
     parser.add_argument("--is_model_id", action="store_true", help="Treat model_path as a HuggingFace model ID instead of a local path")
+    parser.add_argument("--seed", type=int, default=42, help="Base seed for reproducible experiments")
 
     args = parser.parse_args()
 
@@ -382,4 +392,5 @@ if __name__ == "__main__":
         temperature=args.temperature,
         output_dir=args.output_dir,
         is_model_id=args.is_model_id,
+        base_seed=args.seed,
     )

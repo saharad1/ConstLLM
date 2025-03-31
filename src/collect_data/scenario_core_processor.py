@@ -9,6 +9,9 @@ and calculates similarity metrics between decision and explanation attributions.
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
+import torch
+
 from src.collect_data.comp_similarity_scores import (
     calculate_cosine_similarity,
     calculate_spearman_correlation,
@@ -51,6 +54,7 @@ def process_scenario(
     pre_generated_decision_output=None,
     pre_generated_decision_attributions=None,
     pre_generated_explanation_outputs=None,
+    generation_seeds=None,
 ) -> ScenarioScores:
     """
     Process a single scenario with the given analyzer, methods, and parameters.
@@ -64,7 +68,9 @@ def process_scenario(
         num_dec_exp: Number of explanation generations to try
         custom_logger: Optional custom logger for tracking progress
         pre_generated_decision_output: Optional pre-generated output for the decision phase
+        pre_generated_decision_attributions: Optional pre-generated attributions for the decision phase
         pre_generated_explanation_outputs: Optional list of pre-generated outputs for explanation phases
+        generation_seeds: Optional list of seeds for reproducible explanation generations
 
     Returns:
         ScenarioScores object with the results
@@ -105,6 +111,15 @@ def process_scenario(
     # Multiple explanation generation
     for i in range(num_dec_exp):
         log_info(f"Processing decision and explanation for repetition {i+1}/{num_dec_exp}...")
+
+        # Set seed for this generation if seeds are provided
+        if generation_seeds is not None and i < len(generation_seeds):
+            current_seed = int(generation_seeds[i])
+            log_info(f"Using seed {current_seed} for explanation generation {i+1}")
+
+            torch.manual_seed(current_seed)
+            torch.cuda.manual_seed_all(current_seed)
+            np.random.seed(current_seed)
 
         # Get pre-generated explanation output if available
         current_pre_generated_explanation = None

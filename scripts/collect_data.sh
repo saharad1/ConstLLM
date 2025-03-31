@@ -20,6 +20,7 @@ SUBSET=""
 USE_WANDB=true
 RESUME_RUN=""
 TEMPERATURE=0.7
+SEED=42
 
 
 
@@ -33,6 +34,7 @@ function show_help {
     echo "  -a, --attribution METHOD   Attribution method to use (default: $ATTRIBUTION_METHOD)"
     echo "  -n, --num-exp NUMBER       Number of explanations per decision (default: $NUM_EXPLANATIONS)"
     echo "  -s, --subset SIZE          Size of dataset subset to use (default: all)"
+    echo "  --seed VALUE               Base seed for reproducible experiments (default: $SEED)"
     echo "  -w, --wandb                Enable wandb logging"
     echo "  -r, --resume RUN_NAME      Resume a previous run"
     echo "  -g, --gpu GPU_ID           GPU ID to use (default: $GPU_ID)"
@@ -65,6 +67,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -s|--subset)
             SUBSET="$2"
+            shift 2
+            ;;
+        --seed)
+            SEED="$2"
             shift 2
             ;;
         -w|--wandb)
@@ -103,7 +109,7 @@ fi
 
 
 # Build command
-CMD="python -m src.collect_data.run_collect_data --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE"
+CMD="python -m src.collect_data.run_collect_data --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE --seed $SEED"
 
 # Add optional parameters
 if [[ -n "$SUBSET" && "$SUBSET" != "None" ]]; then
