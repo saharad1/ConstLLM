@@ -35,12 +35,13 @@ def eval_trained_dpo(
     use_wandb=True,
     temperature=0.7,
     output_dir=None,
+    is_model_id=False,
 ):
     """
     Evaluate a trained DPO model on a test dataset by computing attributions.
 
     Args:
-        model_path: Path to the trained model
+        model_path: Path to the trained model or a model ID (from HuggingFace)
         dataset_path: Path to the dataset file (JSONL format)
         attribution_method_name: Name of the attribution method to use
         num_dec_exp: Number of decision explanations to generate
@@ -48,10 +49,13 @@ def eval_trained_dpo(
         use_wandb: Whether to use wandb for logging
         temperature: Temperature for model generation
         output_dir: Optional custom output directory
+        is_model_id: If True, model_path is treated as a HuggingFace model ID instead of a local path
     """
-    # Convert paths to Path objects if they're strings
-    if isinstance(model_path, str):
-        model_path = Path(model_path)
+    # Convert paths to Path objects if they're strings and not a model ID
+    if not is_model_id:
+        if isinstance(model_path, str):
+            model_path = Path(model_path)
+    
     if isinstance(dataset_path, str):
         dataset_path = Path(dataset_path)
 
@@ -67,9 +71,14 @@ def eval_trained_dpo(
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Extract model name and dataset name for run naming
-    # Get both parent and grandparent directory names for better identification
-    model_name = model_path.parent.name
-    grandparent_name = model_path.parent.parent.name
+    if is_model_id:
+        # For model IDs, use the model ID itself (or the last part if it contains slashes)
+        model_name = model_path.split("/")[-1] if "/" in model_path else model_path
+        grandparent_name = "huggingface"
+    else:
+        # For local paths, use the directory structure
+        model_name = model_path.parent.name
+        grandparent_name = model_path.parent.parent.name
 
     # Extract dataset name (e.g., ecqa, codah) from the dataset path
     # First try to extract from the path structure
@@ -182,9 +191,15 @@ def eval_trained_dpo(
     # Set up attribution methods
     methods_params_decision, methods_params_explanation = get_attribution_methods_params(attribution_method_name)
 
-    # Initialize LLM analyzer with the trained model
-    print(f"Loading model from: {model_path}")
-    llm_analyzer = LLMAnalyzer(model_id=str(model_path), temperature=temperature)
+    # Initialize LLM analyzer with the model
+    if is_model_id:
+        print(f"Loading model from HuggingFace with ID: {model_path}")
+    else:
+        print(f"Loading model from local path: {model_path}")
+    
+    # Convert model_path to string to ensure compatibility with LLMAnalyzer
+    model_path_str = str(model_path)
+    llm_analyzer = LLMAnalyzer(model_id=model_path_str, temperature=temperature)
 
     # Process scenarios
     start_time_total = time.time()
@@ -342,7 +357,7 @@ def eval_trained_dpo(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate trained DPO model")
-    parser.add_argument("--model_path", type=str, required=True, help="Path to the trained model directory")
+    parser.add_argument("--model_path", type=str, required=True, help="Path to the trained model directory or HuggingFace model ID")
     parser.add_argument("--dataset_path", type=str, required=True, help="Path to the dataset file (JSONL format)")
     parser.add_argument("--attribution_method", type=str, default="LIME", help="Attribution method to use")
     parser.add_argument("--num_dec_exp", type=int, default=5, help="Number of explanations per decision")
@@ -350,6 +365,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb", type=str, default="false", help="Enable/disable wandb logging (true/false)")
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for model generation")
     parser.add_argument("--output_dir", type=str, default=None, help="Custom output directory for results")
+    parser.add_argument("--is_model_id", action="store_true", help="Treat model_path as a HuggingFace model ID instead of a local path")
 
     args = parser.parse_args()
 
@@ -365,4 +381,5 @@ if __name__ == "__main__":
         use_wandb=use_wandb,
         temperature=args.temperature,
         output_dir=args.output_dir,
+        is_model_id=args.is_model_id,
     )

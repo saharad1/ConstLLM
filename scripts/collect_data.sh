@@ -9,10 +9,10 @@ set -e
 
 # GPU ID to use
 # Set the GPU to use
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 
 # Default values
-MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
+MODEL_ID="mistralai/Mistral-7B-Instruct-v0.2"
 DATASET="ecqa"
 ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=10

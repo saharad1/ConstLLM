@@ -1,13 +1,27 @@
 #!/bin/bash
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES="1"  # Use GPU 1 for evaluation
+export CUDA_VISIBLE_DEVICES="0"
 
 # Default paths - adjust these as needed
-MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr5.57e-05_beta0.10_250323_193605/final-model"
+# MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr2.29e-06_beta0.46_250329_122429/best_model"
+MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
 DATASET_PATH="dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/test_1089.jsonl"
-# OUTPUT_DIR="data/eval_results"
 
+
+# Better detection of model ID vs local path
+# Check if it starts with typical absolute/relative path indicators
+# OR if it has more than one slash (typical for local paths)
+# OR if it starts with "trained_models" (which is clearly a local path in this project)
+if [[ "$MODEL_PATH" =~ ^[./] || "$MODEL_PATH" =~ ^/ || 
+      $(echo "$MODEL_PATH" | tr -cd '/' | wc -c) -gt 1 || 
+      "$MODEL_PATH" =~ ^trained_models ]]; then
+  # Likely a local path
+  IS_MODEL_ID=""
+else
+  # Likely a model ID (org/model format with one slash)
+  IS_MODEL_ID="--is_model_id"
+fi
 
 # Attribution method and other parameters
 ATTRIBUTION_METHOD="LIME"
@@ -23,6 +37,16 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --model_path|-m)
       MODEL_PATH="$2"
+      # Better detection logic for the new path
+      if [[ "$MODEL_PATH" =~ ^[./] || "$MODEL_PATH" =~ ^/ || 
+            $(echo "$MODEL_PATH" | tr -cd '/' | wc -c) -gt 1 || 
+            "$MODEL_PATH" =~ ^trained_models ]]; then
+        # Likely a local path
+        IS_MODEL_ID=""
+      else
+        # Likely a model ID (org/model format with one slash)
+        IS_MODEL_ID="--is_model_id"
+      fi
       shift 2
       ;;
     --dataset_path|-d)
@@ -53,6 +77,14 @@ while [[ $# -gt 0 ]]; do
       SUBSET="--subset $2"
       shift 2
       ;;
+    --is_model_id)
+      IS_MODEL_ID="--is_model_id"
+      shift
+      ;;
+    --local_model)
+      IS_MODEL_ID=""  # Force treating as local path even if it looks like a model ID
+      shift
+      ;;
     *)
       echo "Unknown option: $1"
       exit 1
@@ -64,6 +96,7 @@ echo "Evaluating model: $MODEL_PATH"
 echo "Using dataset: $DATASET_PATH"
 echo "Attribution method: $ATTRIBUTION_METHOD"
 echo "WandB logging: $([ "$USE_WANDB" = true ] && echo "enabled" || echo "disabled")"
+echo "Model type: $([ -n "$IS_MODEL_ID" ] && echo "HuggingFace model ID" || echo "Local model path")"
 
 # Run the evaluation script
 python -m src.test_evaluations.eval_trained_dpo \
@@ -73,6 +106,6 @@ python -m src.test_evaluations.eval_trained_dpo \
   --num_dec_exp "$NUM_DEC_EXP" \
   --temperature "$TEMPERATURE" \
   --wandb "$USE_WANDB" \
-  $SUBSET $OUTPUT_DIR
+  $SUBSET $OUTPUT_DIR $IS_MODEL_ID
 
 echo "Evaluation completed!"

@@ -50,10 +50,10 @@ def train_dpo_with_config(
 
     model = FastLanguageModel.get_peft_model(
         model=model,
-        r=64,
+        r=32,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        lora_alpha=64,
-        lora_dropout=0,
+        lora_alpha=32,
+        lora_dropout=0.05,
         bias="none",
         use_gradient_checkpointing="unsloth",
     )
@@ -64,7 +64,6 @@ def train_dpo_with_config(
         model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
         model.config.pad_token_id = tokenizer.pad_token_id
 
-    # Load the DPO dataset with the specified similarity metric and threshold
     # Find the train and eval files without relying on specific sample counts
     def find_dataset_file(directory, prefix):
         """Find a file with the given prefix in the directory, regardless of sample count in filename."""
@@ -121,19 +120,19 @@ def train_dpo_with_config(
         weight_decay=config.weight_decay,
         eval_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="rewards/chosen",  # Use the metric for best model (no need to add eval/)
+        metric_for_best_model="rewards/margins",  # Use the metric for best model (no need to add eval/)
         greater_is_better=True,
     )
 
     # Initialize DPO Trainer
     trainer = DPOTrainer(
         model=model,
-        ref_model=None,
+        ref_model=None,  # Use PEFT's reference model mechanism
         args=training_args,
         processing_class=tokenizer,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
     )
 
     # Start training
@@ -158,7 +157,7 @@ def run_sweep(
     dataset_name="ecqa",  # ecqa or codah
     similarity_metric="cosine",  # "spearman" or "cosine"
     diff_threshold_train=0.2,
-    diff_threshold_eval=0.2,
+    diff_threshold_eval=None,
     sweep_count=10,
 ):
     """
@@ -176,16 +175,17 @@ def run_sweep(
     # Define sweep configuration
     sweep_config = {
         "method": "bayes",  # Bayesian optimization
-        "metric": {"name": "eval/rewards/chosen", "goal": "maximize"},
+        "metric": {"name": "eval/rewards/margins", "goal": "maximize"},
         "parameters": {
-            "learning_rate": {"min": 1e-7, "max": 5e-6, "distribution": "log_uniform_values"},
-            "beta": {"min": 0.05, "max": 0.3, "distribution": "uniform"},
+            "learning_rate": {"min": 8e-7, "max": 5e-6, "distribution": "log_uniform_values"},
+            "beta": {"min": 0.3, "max": 0.5, "distribution": "uniform"},
             "per_device_train_batch_size": {"values": [32]},
-            "gradient_accumulation_steps": {"values": [16]},
-            "warmup_ratio": {"min": 0, "max": 0.1, "distribution": "uniform"},
-            "weight_decay": {"min": 0.005, "max": 0.015, "distribution": "uniform"},
-            "num_train_epochs": {"values": [20]},
-            "lr_scheduler_type": {"values": ["cosine", "linear"]},
+            "gradient_accumulation_steps": {"values": [4]},
+            "warmup_ratio": {"min": 0.1, "max": 0.2, "distribution": "uniform"},
+            "weight_decay": {"min": 0.01, "max": 0.05, "distribution": "uniform"},
+            "num_train_epochs": {"values": [5]},
+            "lr_scheduler_type": {"values": ["linear"]},
+            "diff_threshold_train": {"min": 0, "max": 0.2, "distribution": "uniform"},
         },
     }
     # Create a unique sweep project name that includes model, dataset and similarity metric
@@ -221,7 +221,7 @@ def run_sweep(
         wandb.config.update(
             {
                 "similarity_metric": similarity_metric,
-                "diff_threshold_train": diff_threshold_train,
+                # "diff_threshold_train": diff_threshold_train,
                 "diff_threshold_eval": diff_threshold_eval,
                 "dataset": dataset_name,
                 "model": model_name,
