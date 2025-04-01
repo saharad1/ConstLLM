@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES="0"
+export CUDA_VISIBLE_DEVICES="2"
 
 # Default paths - adjust these as needed
-# MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr2.29e-06_beta0.46_250329_122429/best_model"
-MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
+MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr2.29e-06_beta0.46_250329_122429/best_model"
+# MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
 DATASET_PATH="dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/test_1089.jsonl"
 
 

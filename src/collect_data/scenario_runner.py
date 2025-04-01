@@ -18,7 +18,7 @@ from src.collect_data.scenario_core_processor import (
 
 
 def process_single_scenario(
-    scenario_item, llm_analyzer, methods_params_decision, methods_params_explanation, num_dec_exp, original_params, iteration, max_retries=3
+    scenario_item, llm_analyzer, methods_params_decision, methods_params_explanation, num_dec_exp, original_params, iteration, generation_seeds=None, max_retries=3
 ):
     """
     Process a single scenario with retries.
@@ -31,6 +31,7 @@ def process_single_scenario(
         num_dec_exp: Number of decision explanations to generate
         original_params: Original parameters for the scenario
         iteration: Current iteration number
+        generation_seeds: Seeds to use for reproducible explanation generation
         max_retries: Maximum number of retries for processing a scenario
 
     Returns:
@@ -53,6 +54,7 @@ def process_single_scenario(
                 methods_params_explanation=methods_params_explanation,
                 num_dec_exp=num_dec_exp,
                 custom_logger=None,  # We'll use the default logger
+                generation_seeds=generation_seeds,
             )
 
             # Ensure scenario_id is set

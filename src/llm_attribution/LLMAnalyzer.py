@@ -11,16 +11,13 @@ from captum.attr import (
     Lime,
     LLMGradientAttribution,
     ShapleyValueSampling,
-    TextTokenInput,
 )
 from captum.attr._core.llm_attr import LLMAttributionResult
 
 from src.llm_attribution.LLMAttributionMod import ExtendedLLMAttribution
 from src.llm_attribution.TextTokenInputMod import TextTokenInputMod
 from src.llm_attribution.utils_attribution import AttributionMethod
-from src.utils.custom_chat_template import custom_apply_chat_template
 from src.utils.data_models import LLMAnalysisRes
-from src.utils.general import print_gpu_info
 from src.utils.get_skip_tokens import get_skip_tokens
 from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
 

@@ -95,7 +95,7 @@ def process_scenario(
     correct_label = get_scenario_attribute(scenario_item, "correct_label", "label")
 
     # Decision Phase
-    decision_prompt_template = custom_apply_chat_template([{"role": "user", "content": decision_prompt}])
+    decision_prompt_template = custom_apply_chat_template([{"role": "user", "content": decision_prompt}], tokenizer=llm_analyzer.tokenizer)
     decision_output, decision_result = run_phase(
         llm_analyzer=llm_analyzer,
         prompt=decision_prompt_template,
@@ -132,7 +132,8 @@ def process_scenario(
                 {"role": "user", "content": decision_prompt},
                 {"role": "assistant", "content": decision_output},
                 {"role": "user", "content": explanation_prompt},
-            ]
+            ],
+            tokenizer=llm_analyzer.tokenizer,
         )
         explanation_output, explanation_result = run_phase(
             llm_analyzer=llm_analyzer,

@@ -5,9 +5,10 @@ from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
 
 def custom_apply_chat_template(messages: List, add_generation_prompt=True, tokenize=False, tokenizer=None):
     """
-    Constructs a chat prompt from messages, similar to apply_chat_template,
-    but excludes the default system prompt.
-
+    Uses the tokenizer's built-in apply_chat_template method but with customizations:
+    - Makes it easier to use with an optional tokenizer parameter
+    - Maintains the same interface as the previous custom implementation
+    
     Args:
         messages (list of dict): Each dict has 'role' and 'content'.
         add_generation_prompt (bool): Whether to add the assistant's role for generation.
@@ -17,40 +18,18 @@ def custom_apply_chat_template(messages: List, add_generation_prompt=True, token
     Returns:
         str or dict: The constructed prompt as a string, or tokenized input if tokenize=True.
     """
-    prompt = ""
-
-    # Begin the prompt with the beginning of text token
-    bos_token = tokenizer.bos_token if tokenizer and tokenizer.bos_token else "<|begin_of_text|>"
-    prompt += bos_token
-
-    # Iterate over the messages
-    for message in messages:
-        role = message["role"]
-        content = message["content"].strip()
-
-        if role == "system":
-            # Exclude the default system prompt
-            # If you have a custom system prompt, you can include it here
-            # For now, we'll skip system messages
-            continue
-        elif role == "user":
-            prompt += f"\n<|start_header_id|>user<|end_header_id|>{content}<|eot_id|>"
-        elif role == "assistant":
-            prompt += f"\n<|start_header_id|>assistant<|end_header_id|>{content}<|eot_id|>"
-        else:
-            raise ValueError(f"Unknown role: {role}")
-
-    if add_generation_prompt:
-        # Add the assistant role for generation
-        prompt += f"<|start_header_id|>assistant<|end_header_id|>\n"
-
-    if tokenize:
-        if tokenizer is None:
-            raise ValueError("Tokenizer must be provided if tokenize=True")
-        tokenized_input = tokenizer(prompt, return_tensors="pt")
-        return tokenized_input
-    else:
-        return prompt
+    if tokenizer is None:
+        raise ValueError("Tokenizer must be provided")
+    
+    # Use the built-in method from the tokenizer
+    formatted_chat = tokenizer.apply_chat_template(
+        messages,
+        add_generation_prompt=add_generation_prompt,
+        tokenize=tokenize,
+        return_tensors="pt" if tokenize else None
+    )
+    
+    return formatted_chat
 
 
 if __name__ == "__main__":

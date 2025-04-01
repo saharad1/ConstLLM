@@ -8,13 +8,13 @@ from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
 
 def get_skip_tokens(tokenizer, extra_skip_tokens: list = None, only_skip_structure: bool = True) -> dict:
     """
-    Identifies stop words and punctuation tokens in the tokenizer's vocabulary.
+    Identifies stop words, punctuation, and model-specific structure tokens in the tokenizer's vocabulary.
+    Works across different model families (Llama, Mistral, Phi, etc.)
 
-    :param only_skip_structure:
-    :param extra_skip_tokens:
-    :param tokenizer: The Llama tokenizer instance.
-    :return: A dictionary with two keys: "stop_words" and "punctuation",
-             each containing a list of tokens.
+    :param tokenizer: The model tokenizer instance
+    :param extra_skip_tokens: Additional tokens to skip
+    :param only_skip_structure: If True, only return structure tokens
+    :return: A dictionary with token ids to skip during attribution
     """
     # Download necessary resources
     try:
@@ -51,56 +51,85 @@ def get_skip_tokens(tokenizer, extra_skip_tokens: list = None, only_skip_structu
         if stripped_token in punctuation:
             punctuation_tokens[token] = token_id
 
-    structure_tokens = {
-        "<|start_header_id|>": tokenizer.convert_tokens_to_ids("<|start_header_id|>"),
-        "<|end_header_id|>": tokenizer.convert_tokens_to_ids("<|end_header_id|>"),
-        "<|eot_id|>": tokenizer.convert_tokens_to_ids("<|eot_id|>"),
-        "<|begin_of_text|>": tokenizer.convert_tokens_to_ids("<|begin_of_text|>"),
-        "system": tokenizer.convert_tokens_to_ids("system"),
-        "user": tokenizer.convert_tokens_to_ids("user"),
-        "assistant": tokenizer.convert_tokens_to_ids("assistant"),
-        "Ċ": tokenizer.convert_tokens_to_ids("Ċ"),
-        "Ġ->": tokenizer.convert_tokens_to_ids("Ġ->"),
-    }
+    # Detect model type and set appropriate structure tokens
+    model_name = tokenizer.name_or_path.lower() if hasattr(tokenizer, "name_or_path") else ""
+    structure_tokens = {}
 
-    # Handle extra skip tokens
-    extra_tokens_dict = {}
-    if extra_skip_tokens:
-        for extra_token in extra_skip_tokens:
-            # Tokenize the string to decompose it into individual tokens
-            tokenized_ids = tokenizer.encode(extra_token, add_special_tokens=False)
+    # Add basic special tokens that most models have
+    for token_name in ["bos_token", "eos_token", "pad_token", "sep_token", "cls_token", "mask_token"]:
+        token = getattr(tokenizer, token_name, None)
+        if token is not None and token != "":
+            try:
+                token_id = tokenizer.convert_tokens_to_ids(token)
+                structure_tokens[token] = token_id
+            except:
+                pass
 
-            # Add each token to the extra_tokens_dict
-            for idx, token_id in enumerate(tokenized_ids):
-                token_string = tokenizer.decode([token_id]).strip()
-                extra_tokens_dict[f"{token_string}"] = token_id
+    # Try to add role-related tokens that most models use
+    common_role_tokens = ["system", "user", "assistant"]
+    for token in common_role_tokens:
+        try:
+            token_id = tokenizer.convert_tokens_to_ids(token)
+            if token_id != tokenizer.unk_token_id:
+                structure_tokens[token] = token_id
+        except:
+            pass
 
-    # Combine results into a single dictionary
-    if only_skip_structure:
-        skip_tokens_dict = structure_tokens
-    else:
-        skip_tokens_dict = {
-            **stop_word_tokens,
-            **punctuation_tokens,
-            **structure_tokens,
-            **extra_tokens_dict,
-        }
+    # Add model-specific structure tokens
+    if "mistral" in model_name:
+        # Mistral-specific tokens
+        mistral_tokens = ["<s>", "</s>", "[INST]", "[/INST]", "<<SYS>>", "<</SYS>>"]
+        for token in mistral_tokens:
+            try:
+                token_id = tokenizer.convert_tokens_to_ids(token)
+                if token_id != tokenizer.unk_token_id:
+                    structure_tokens[token] = token_id
+            except:
+                pass
 
-    # Print results
-    print("Total Tokens Skipped:", len(skip_tokens_dict))
-    return skip_tokens_dict
+    elif "llama" in model_name:
+        # Llama-specific tokens
+        llama_tokens = [
+            "<|start_header_id|>",
+            "<|end_header_id|>",
+            "<|eot_id|>",
+            "<|begin_of_text|>",
+            "Ċ",
+            "Ġ->",
+        ]
+        for token in llama_tokens:
+            try:
+                token_id = tokenizer.convert_tokens_to_ids(token)
+                if token_id != tokenizer.unk_token_id:
+                    structure_tokens[token] = token_id
+            except:
+                pass
 
+    elif "phi" in model_name:
+        # Phi-specific tokens
+        phi_tokens = ["<|system|>", "<|assistant|>", "<|user|>"]
+        for token in phi_tokens:
+            try:
+                token_id = tokenizer.convert_tokens_to_ids(token)
+                if token_id != tokenizer.unk_token_id:
+                    structure_tokens[token] = token_id
+            except:
+                pass
 
-# def get_structure_tokens(tokenizer):
-#     structure_tokens = {
-#         '<|start_header_id|>': tokenizer.convert_tokens_to_ids('<|start_header_id|>'),
-#         '<|end_header_id|>': tokenizer.convert_tokens_to_ids('<|end_header_id|>'),
-#         '<|eot_id|>': tokenizer.convert_tokens_to_ids('<|eot_id|>'),
-#         '<|begin_of_text|>': tokenizer.convert_tokens_to_ids('<|begin_of_text|>'),
-#         'system': tokenizer.convert_tokens_to_ids('system'),
-#         'user': tokenizer.convert_tokens_to_ids('user'),
-#         'assistant': tokenizer.convert_tokens_to_ids('assistant'),
-#         # 'Ċ': tokenizer.convert_tokens_to_ids('Ċ'),
-#     }
-#
-#     return structure_tokens
+    # Combine the identified tokens
+    skip_tokens = {}
+    if not only_skip_structure:
+        skip_tokens.update(stop_word_tokens)
+        skip_tokens.update(punctuation_tokens)
+    skip_tokens.update(structure_tokens)
+
+    # Add extra skip tokens if provided
+    if extra_skip_tokens is not None:
+        for token in extra_skip_tokens:
+            try:
+                token_id = tokenizer.convert_tokens_to_ids(token)
+                skip_tokens[token] = token_id
+            except:
+                pass
+
+    return skip_tokens
