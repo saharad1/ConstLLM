@@ -198,8 +198,15 @@ class LLMAnalyzer:
         # Prepare interpretable inputs
         interpretable_input = self._prepare_input(input_text)
 
+        # Use a faster integration method
+        params.setdefault("method", "riemann_trapezoid")
+
         # Check if 'baselines' is in params, and add it if missing
         params.setdefault("baselines", self.tokenizer.pad_token_id)
+
+        # Enable any applicable memory optimizations
+        if hasattr(self.model, "enable_gradient_checkpointing"):
+            self.model.enable_gradient_checkpointing()
 
         # Define the Layer Integrated Gradients algorithm
         lig_method = LayerIntegratedGradients(forward_func=self.model, layer=self.embedding_layer)
@@ -211,7 +218,6 @@ class LLMAnalyzer:
         return gradient_attributor.attribute(
             inp=interpretable_input,
             target=target,
-            method="gausslegendre",
             **params,  # Pass additional params (e.g., n_steps, baselines)
         )
 

@@ -81,11 +81,25 @@ def get_skip_tokens(tokenizer, extra_skip_tokens: list = None, only_skip_structu
         mistral_tokens = ["<s>", "</s>", "[INST]", "[/INST]", "<<SYS>>", "<</SYS>>"]
         for token in mistral_tokens:
             try:
+                # Try direct token first
                 token_id = tokenizer.convert_tokens_to_ids(token)
                 if token_id != tokenizer.unk_token_id:
                     structure_tokens[token] = token_id
+                else:
+                    # If not found directly, try encoding and then getting individual token IDs
+                    encoded = tokenizer.encode(token, add_special_tokens=False)
+                    if encoded:
+                        for idx, token_id in enumerate(encoded):
+                            token_string = tokenizer.decode([token_id]).strip()
+                            structure_tokens[f"{token_string}_{idx}"] = token_id
             except:
-                pass
+                # If that still fails, try to find tokens that might contain parts of these markers
+                try:
+                    for vocab_token, token_id in vocab.items():
+                        if token in vocab_token:
+                            structure_tokens[vocab_token] = token_id
+                except:
+                    pass
 
     elif "llama" in model_name:
         # Llama-specific tokens
@@ -106,8 +120,25 @@ def get_skip_tokens(tokenizer, extra_skip_tokens: list = None, only_skip_structu
                 pass
 
     elif "phi" in model_name:
-        # Phi-specific tokens
-        phi_tokens = ["<|system|>", "<|assistant|>", "<|user|>"]
+        # Phi-specific tokens based on actual observed tokens
+        phi_tokens = [
+            # Standard special tokens
+            "<s>",
+            "</s>",
+            "<unk>",
+            "<pad>",
+            "<cls>",
+            "<sep>",
+            "<mask>",
+            "<eod>",
+            "<|user|>",
+            "<|end|>",
+            "<|endoftext|>",
+            # Specific chat format tokens from our test output
+            "assistant:",
+            "user:",
+            "system:",
+        ]
         for token in phi_tokens:
             try:
                 token_id = tokenizer.convert_tokens_to_ids(token)

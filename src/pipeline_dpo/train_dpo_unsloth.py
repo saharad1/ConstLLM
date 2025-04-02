@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
+from datasets import Dataset
 
 # from peft import LoraConfig, get_peft_model
 # from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -14,7 +15,6 @@ from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel
 
 import wandb
-from datasets import Dataset
 
 # from datasets import load_dataset
 from pipeline_dpo.prepare_dataset_to_dpo import load_dpo_dataset

@@ -9,10 +9,20 @@ set -e
 
 # GPU ID to use
 # Set the GPU to use
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
+
+# Model ids:
+# unsloth/mistral-7b-instruct-v0.3
+# meta-llama/Meta-Llama-3.1-8B-Instruct
+# unsloth/Phi-3-mini-4k-instruct
+
+# Attribution methods:
+# LIG
+# LIME
+# Feature Ablation
 
 # Default values
-MODEL_ID="mistralai/Mistral-7B-Instruct-v0.2"
+MODEL_ID="unsloth/mistral-7b-instruct-v0.3"
 DATASET="ecqa"
 ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=5

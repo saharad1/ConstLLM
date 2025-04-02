@@ -75,14 +75,10 @@ class ModelTokenizerBundle:
                     bnb_8bit_compute_dtype=torch.bfloat16,
                 )
             else:
-                raise ValueError(
-                    f"Unsupported quantization type: {self.quantization_type}"
-                )
+                raise ValueError(f"Unsupported quantization type: {self.quantization_type}")
             model_kwargs["quantization_config"] = quantization_config
         else:
-            model_kwargs["torch_dtype"] = (
-                torch.float16
-            )  # Use full precision (or float16 if preferred)
+            model_kwargs["torch_dtype"] = torch.float16  # Use full precision (or float16 if preferred)
 
         # if self.use_quantization:
         #     quantization_config: BitsAndBytesConfig = BitsAndBytesConfig(
@@ -133,28 +129,23 @@ class ModelTokenizerBundle:
         """
         Ensure that the tokenizer has a padding token set.
 
-        If no padding token is set, this method adds a custom '[PAD]' token
+        If no padding token is set, this method adds a custom padding token
         and resizes the model's token embeddings accordingly.
+        Uses '[PAD]' specifically for Mistral models.
         """
         if self.tokenizer.pad_token is None:
-            if "<|pad|>" not in self.tokenizer.get_vocab():
-                self.tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+            # Check if it's a Mistral model and use [PAD] specifically for Mistral
+            is_mistral = "mistral" in self.model_id.lower()
+            pad_token = "[PAD]" if is_mistral else "<|pad|>"
+
+            # Add the appropriate padding token
+            if pad_token not in self.tokenizer.get_vocab():
+                self.tokenizer.add_special_tokens({"pad_token": pad_token})
             self.tokenizer.padding_side = "left"
             self.model.resize_token_embeddings(len(self.tokenizer), mean_resizing=False)
-            print("Padding token added.")
+            print(f"Padding token added: {pad_token}")
         else:
-            print("Padding token already exists.")
-        # if self.tokenizer.pad_token is None:
-        #     print("No padding token found. Adding '<|pad|>' token to the tokenizer.")
-        #     # self.tokenizer.pad_token = self.tokenizer.eos_token
-        #     self.tokenizer.add_special_tokens({'pad_token': '<|pad|>'})
-        #     print(f"Padding token set to: {self.tokenizer.pad_token}")
-        #     self.tokenizer.padding_side = "left"
-        #
-        #     # Resize model embeddings to account for the new token
-        #     self.model.resize_token_embeddings(len(self.tokenizer))
-        # else:
-        #     print(f"Padding token already set to: {self.tokenizer.pad_token}")
+            print(f"Padding token already exists: {self.tokenizer.pad_token}")
 
     def create_attention_mask(self, input_ids: torch.Tensor) -> torch.Tensor:
         """

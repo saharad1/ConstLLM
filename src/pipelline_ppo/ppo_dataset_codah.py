@@ -58,7 +58,7 @@ def create_codah_ppo_dataset(
 
         # Ensure padding token exists
         if tokenizer.pad_token is None:
-            tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+            tokenizer.add_special_tokens({"pad_token": "[PAD]" if "mistral" in getattr(tokenizer, "name_or_path", "").lower() else "<|pad|>"})
             model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
             model.config.pad_token_id = tokenizer.pad_token_id
 

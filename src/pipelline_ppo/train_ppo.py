@@ -50,7 +50,7 @@ def seq_ppo(model_name):
     )
 
     if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+        tokenizer.add_special_tokens({"pad_token": "[PAD]" if "mistral" in getattr(tokenizer, "name_or_path", "").lower() else "<|pad|>"})
         # base_model.config.pad_token_id = tokenizer.pad_token_id
         base_model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
         # TODO: Check if using the eos token is necessary
