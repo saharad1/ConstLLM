@@ -128,6 +128,7 @@ def run_collect_data(
     success_sum = 0
     spearman_sums = {"best": 0, "worst": 0, "median": 0}
     cosine_sums = {"best": 0, "worst": 0, "median": 0}
+    total_time_sum = 0
 
     # Set up attribution methods
     methods_params_decision, methods_params_explanation = get_attribution_methods_params(attribution_method_name)
@@ -151,6 +152,7 @@ def run_collect_data(
 
     # Process scenarios
     for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
+        scenario_start_time = time.time()
         # Skip already processed scenarios
         scenario_id = get_scenario_attribute(scenario_item, "scenario_id", "scenario_id", f"scenario_{iteration}")
         if scenario_id in processed_scenarios:
@@ -190,6 +192,9 @@ def run_collect_data(
             iteration=iteration,
         )
 
+        # Add timing end and logging here
+        scenario_time = time.time() - scenario_start_time
+        total_time_sum += scenario_time
         # Skip if processing failed
         if scenario_res is None:
             # Log error to file
@@ -222,6 +227,8 @@ def run_collect_data(
             iteration=iteration,
             spearman_sums=spearman_sums,
             cosine_sums=cosine_sums,
+            scenario_time=scenario_time,
+            total_time_sum=total_time_sum,
         )
 
         # Log metrics

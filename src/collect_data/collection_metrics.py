@@ -35,7 +35,7 @@ def extract_choice(output: str):
     return ""
 
 
-def calculate_metrics(scenario_res, success_sum, iteration, spearman_sums, cosine_sums):
+def calculate_metrics(scenario_res, success_sum, iteration, spearman_sums, cosine_sums, scenario_time, total_time_sum):
     """
     Calculate metrics for a scenario result.
 
@@ -54,6 +54,7 @@ def calculate_metrics(scenario_res, success_sum, iteration, spearman_sums, cosin
     decision_choice = extract_choice(scenario_res.decision_output)
     success_sum += decision_choice == correct_choice
     accuracy_label = success_sum / iteration
+    scenario_time_avg = total_time_sum / iteration
 
     # Spearman correlations
     spearman_best_score = np.max(scenario_res.spearman_scores)
@@ -87,6 +88,7 @@ def calculate_metrics(scenario_res, success_sum, iteration, spearman_sums, cosin
         "tracking/cosine_best_score_avg": cosine_best_score_avg,
         "tracking/cosine_worst_score_avg": cosine_worst_score_avg,
         "tracking/cosine_median_score_avg": cosine_median_score_avg,
+        "tracking/scenario_time_avg": scenario_time_avg,
         # Scenario metrics
         "scenario/scenario_id": scenario_res.scenario_id,
         # Spearman metrics
@@ -101,6 +103,7 @@ def calculate_metrics(scenario_res, success_sum, iteration, spearman_sums, cosin
         "scenario/cosine/best_score": cosine_best_score,
         "scenario/cosine/worst_score": cosine_worst_score,
         "scenario/cosine/median": cosine_median_score,
+        "scenario/time": scenario_time,
     }
 
     return metrics, success_sum

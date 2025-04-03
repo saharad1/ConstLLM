@@ -6,9 +6,11 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
+    LlamaTokenizer,
     PreTrainedModel,
     PreTrainedTokenizer,
 )
+from unsloth import FastLanguageModel
 
 
 class ModelTokenizerBundle:
@@ -20,11 +22,11 @@ class ModelTokenizerBundle:
     necessary for natural language processing tasks using transformer models.
 
     Attributes:
-        model_id (str): The identifier of the pre-trained model.
-        tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
-        model (PreTrainedModel): The pre-trained language model.
-        device (torch.device): The device on which the model is loaded.
-        use_quantization (bool): Whether to use 4-bit quantization for the model.
+    model_id (str): The identifier of the pre-trained model.
+    tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
+    model (PreTrainedModel): The pre-trained language model.
+    device (torch.device): The device on which the model is loaded.
+    use_quantization (bool): Whether to use 4-bit quantization for the model.
     """
 
     def __init__(
@@ -59,68 +61,66 @@ class ModelTokenizerBundle:
         """
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
 
-        model_kwargs = {"device_map": f"{self.device}"}
-        # model_kwargs = {"device_map": "auto"}
-        if self.use_quantization:
-            if self.quantization_type == "4bit":
-                quantization_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_use_double_quant=True,
-                    bnb_4bit_quant_type="nf4",
+        # Check if model is already quantized based on its name
+        is_already_quantized = any(qt in self.model_id.lower() for qt in ["bnb-4bit", "4bit", "bnb-8bit", "8bit"])
+
+        # Check if this is an unsloth model
+        is_unsloth_model = "unsloth" in self.model_id.lower()
+
+        if is_unsloth_model:
+            # For unsloth models, we need to use their specialized loading
+            print(f"Detected Unsloth model: {self.model_id}, using Unsloth-specific loading")
+
+            try:
+
+                print(f"Loading Unsloth model: {self.model_id}")
+
+                # Use unsloth's specialized model loading
+                self.model, self.tokenizer = FastLanguageModel.from_pretrained(
+                    model_name=self.model_id,
+                    max_seq_length=2048,  # Adjust as needed for your use case
+                    dtype=torch.float16,
+                    load_in_4bit=False,  # Disable 4-bit loading for now
+                    device_map=self.device,
                 )
-            elif self.quantization_type == "8bit":
-                quantization_config = BitsAndBytesConfig(
-                    load_in_8bit=True,
-                    bnb_8bit_compute_dtype=torch.bfloat16,
-                )
-            else:
-                raise ValueError(f"Unsupported quantization type: {self.quantization_type}")
-            model_kwargs["quantization_config"] = quantization_config
+                print(f"Unsloth model loaded successfully on device: {self.device}")
+            except ImportError as e:
+                print(f"Required package not found: {str(e)}")
+                raise
         else:
+            # Standard model loading for non-unsloth models
+            model_kwargs = {"device_map": f"{self.device}"}
+
+            # Only apply quantization if explicitly requested AND model is not already quantized
+            if self.use_quantization and not is_already_quantized:
+                if self.quantization_type == "4bit":
+                    quantization_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_compute_dtype=torch.float16,
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_quant_type="nf4",
+                    )
+                elif self.quantization_type == "8bit":
+                    quantization_config = BitsAndBytesConfig(
+                        load_in_8bit=True,
+                        bnb_8bit_compute_dtype=torch.bfloat16,
+                    )
+                else:
+                    raise ValueError(f"Unsupported quantization type: {self.quantization_type}")
+                model_kwargs["quantization_config"] = quantization_config
+            else:
+                if is_already_quantized:
+                    print(f"Model '{self.model_id}' appears to be already quantized. Skipping additional quantization.")
             model_kwargs["torch_dtype"] = torch.float16  # Use full precision (or float16 if preferred)
 
-        # if self.use_quantization:
-        #     quantization_config: BitsAndBytesConfig = BitsAndBytesConfig(
-        #         load_in_4bit=True,
-        #         bnb_4bit_compute_dtype=torch.float16, # torch.float16 (match with the model's dtype),
-        #         bnb_4bit_use_double_quant=True,
-        #         bnb_4bit_quant_type="nf4"
-        #     )
-        #
-        #     # quantization_config = BitsAndBytesConfig(
-        #     #     load_in_8bit=True,
-        #     #     # bnb_8bit_compute_dtype=torch.float16,
-        #     # )
-        #
-        #     # Define the quantization configuration for 8-bit
-        #     # quantization_config = BitsAndBytesConfig(
-        #     #     load_in_8bit=True,  # Enable 8-bit quantization
-        #     #     bnb_8bit_compute_dtype=torch.bfloat16,  # Use FP16 for computations (optional)
-        #     #     bnb_8bit_use_double_quant=False,  # Disable double quantization for stability
-        #     #     bnb_8bit_quant_type="fp8"  # Use FP8 quantization type (for more stability)
-        #     # )
-        #     model_kwargs["quantization_config"] = quantization_config
-        # else:
-        #     model_kwargs["torch_dtype"] = torch.bfloat16
-
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
 
         # Set up padding token after model initialization
         self._setup_padding_token()
 
-        # # Apply DataParallel if enabled
-        # if self.use_dataparallel:
-        #     if not self.device_ids:
-        #         self.device_ids = list(range(torch.cuda.device_count()))  # Use all available GPUs
-        #     self.model = DataParallel(self.model, device_ids=self.device_ids)
-        #     print(f"Model wrapped in DataParallel on GPUs: {self.device_ids}")
-        # else:
-        #     print(f"Model loaded on device: {self.device}")
-
         model_device = next(self.model.parameters()).device
         print(f"Model loaded on device: {model_device}")
-        if self.use_quantization:
+        if not is_unsloth_model and self.use_quantization and not is_already_quantized:
             print("Model quantized to 4-bit precision")
         else:
             print("Model loaded without quantization")
@@ -131,12 +131,23 @@ class ModelTokenizerBundle:
 
         If no padding token is set, this method adds a custom padding token
         and resizes the model's token embeddings accordingly.
-        Uses '[PAD]' specifically for Mistral models.
+        Uses model-specific padding tokens:
+        - '[PAD]' for Mistral models
+        - '<pad>' for Qwen models
+        - ' ' for other models
         """
         if self.tokenizer.pad_token is None:
-            # Check if it's a Mistral model and use [PAD] specifically for Mistral
+            # Check model type and set appropriate padding token
             is_mistral = "mistral" in self.model_id.lower()
-            pad_token = "[PAD]" if is_mistral else "<|pad|>"
+            is_qwen = "qwen" in self.model_id.lower()
+
+            # Set appropriate padding token based on model type
+            if is_mistral:
+                pad_token = "[PAD]"
+            elif is_qwen:
+                pad_token = "<pad>"
+            else:
+                pad_token = ""
 
             # Add the appropriate padding token
             if pad_token not in self.tokenizer.get_vocab():

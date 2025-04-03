@@ -13,8 +13,12 @@ export CUDA_VISIBLE_DEVICES=0
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
+# unsloth/Meta-Llama-3.1-8B-Instruct
+# unsloth/Qwen2.5-7B-Instruct-bnb-4bit
+# For LIG:
 # meta-llama/Meta-Llama-3.1-8B-Instruct
-# unsloth/Phi-3-mini-4k-instruct
+# mistralai/Mistral-7B-Instruct-v0.3
+# meta-llama/Llama-3.2-3B-Instruct
 
 # Attribution methods:
 # LIG
@@ -22,9 +26,9 @@ export CUDA_VISIBLE_DEVICES=0
 # Feature Ablation
 
 # Default values
-MODEL_ID="unsloth/mistral-7b-instruct-v0.3"
+MODEL_ID="meta-llama/Llama-3.2-3B-Instruct"
 DATASET="ecqa"
-ATTRIBUTION_METHOD="LIME"
+ATTRIBUTION_METHOD="LIG"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true

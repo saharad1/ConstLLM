@@ -48,7 +48,7 @@ def setup_run_environment(dataset_name, model_id, attribution_method_name, resum
     # Create output directory
     # Use the model ID with slashes replaced by underscores for the directory
     safe_model_id = model_id.replace("/", "_")
-    output_dir = Path(f"data/{dataset_name}/{safe_model_id}")
+    output_dir = Path(f"data/collection_data/{dataset_name}/{safe_model_id}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create run directory

@@ -96,7 +96,7 @@ class LLMAnalyzer:
             output_ids = self.model.generate(
                 input_ids=inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
-                max_new_tokens=200,
+                max_new_tokens=400,
                 num_return_sequences=1,
                 do_sample=True,
                 temperature=self.temperature,
@@ -199,7 +199,7 @@ class LLMAnalyzer:
         interpretable_input = self._prepare_input(input_text)
 
         # Use a faster integration method
-        params.setdefault("method", "riemann_trapezoid")
+        params.setdefault("method", "gausslegendre")
 
         # Check if 'baselines' is in params, and add it if missing
         params.setdefault("baselines", self.tokenizer.pad_token_id)

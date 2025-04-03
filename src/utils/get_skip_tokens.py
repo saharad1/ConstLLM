@@ -147,6 +147,29 @@ def get_skip_tokens(tokenizer, extra_skip_tokens: list = None, only_skip_structu
             except:
                 pass
 
+    elif "qwen" in model_name:
+        # Qwen-specific tokens based on their chat format
+        qwen_tokens = [
+            # Standard special tokens
+            "<s>",
+            "</s>",
+            "<unk>",
+            "<pad>",
+            # Qwen chat format tokens
+            "<|im_start|>",
+            "<|im_end|>",
+            "system",
+            "user",
+            "assistant",
+        ]
+        for token in qwen_tokens:
+            try:
+                token_id = tokenizer.convert_tokens_to_ids(token)
+                if token_id != tokenizer.unk_token_id:
+                    structure_tokens[token] = token_id
+            except:
+                pass
+
     # Combine the identified tokens
     skip_tokens = {}
     if not only_skip_structure:
