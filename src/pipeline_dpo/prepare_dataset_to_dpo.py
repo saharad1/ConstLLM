@@ -124,8 +124,8 @@ def load_dpo_dataset(
 
 if __name__ == "__main__":
     # Test the dataset loading function
-    dataset_path = "dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/train_7617.jsonl"
+    dataset_path = "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/train_7617.jsonl"
     train_dataset = load_dpo_dataset(dataset_path, include_scores=True)
     print(f"Number of samples: {len(train_dataset)}")
     print(train_dataset.column_names)
-    print(train_dataset[0])  # Check the first sample
+    print(train_dataset[2])  # Check the first sample

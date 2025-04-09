@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from src.collect_data.comp_score import calculate_spearman_correlation
+from src.collect_data.comp_similarity_scores import calculate_cosine_similarity
 
 LOG_DIR = Path("show_logs")
 LOG_DIR.mkdir(exist_ok=True)  # Ensure the log directory exists
@@ -48,7 +48,7 @@ def print_scenario(scenario, log_file, num_top_tokens=10):
 
     spearman_scores_exp = []
     for idx, explanation_attribution in enumerate(scenario["explanation_attributions"]):
-        spearman_score_temp = calculate_spearman_correlation(scenario["decision_attributions"], explanation_attribution)
+        spearman_score_temp = calculate_cosine_similarity(scenario["decision_attributions"], explanation_attribution)
         explanation_scenario = scenario["explanation_outputs"][idx]
         spearman_scores_exp.append((explanation_scenario, explanation_attribution, spearman_score_temp))
 
@@ -93,5 +93,7 @@ def run_print_scenarios(file_path, subset=15, num_top_tokens=15):
 
 
 if __name__ == "__main__":
-    file_path = Path("dpo_datasets/codah_dpo_datasets/codah_250219_165846_LIME.jsonl")
+    file_path = Path(
+        "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1_fixed.jsonl"
+    )
     run_print_scenarios(str(file_path))

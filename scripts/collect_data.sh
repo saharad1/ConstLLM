@@ -9,12 +9,12 @@ set -e
 
 # GPU ID to use
 # Set the GPU to use
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
 # unsloth/Meta-Llama-3.1-8B-Instruct
-# unsloth/Qwen2.5-7B-Instruct-bnb-4bit
+# unsloth/Qwen2.5-7B-Instruct
 # For LIG:
 # meta-llama/Meta-Llama-3.1-8B-Instruct
 # mistralai/Mistral-7B-Instruct-v0.3
@@ -25,10 +25,17 @@ export CUDA_VISIBLE_DEVICES=0
 # LIME
 # Feature Ablation
 
+# Datasets:
+# ecqa
+# choice75
+# codah
+# arc_easy
+# arc_challenge
+
 # Default values
-MODEL_ID="meta-llama/Llama-3.2-3B-Instruct"
+MODEL_ID="unsloth/Qwen2.5-7B-Instruct"
 DATASET="ecqa"
-ATTRIBUTION_METHOD="LIG"
+ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true

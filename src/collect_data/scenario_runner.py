@@ -6,6 +6,7 @@ error handling, and saving results to files. It acts as a wrapper around the
 core processing functionality, providing robustness and persistence.
 """
 
+import json
 import time
 import traceback
 from dataclasses import asdict
@@ -18,7 +19,15 @@ from src.collect_data.scenario_core_processor import (
 
 
 def process_single_scenario(
-    scenario_item, llm_analyzer, methods_params_decision, methods_params_explanation, num_dec_exp, original_params, iteration, generation_seeds=None, max_retries=3
+    scenario_item,
+    llm_analyzer,
+    methods_params_decision,
+    methods_params_explanation,
+    num_dec_exp,
+    original_params,
+    iteration,
+    generation_seeds=None,
+    max_retries=3,
 ):
     """
     Process a single scenario with retries.
@@ -78,6 +87,30 @@ def process_single_scenario(
     return None, error_msg
 
 
+# def save_scenario_result(scenario_res, jsonl_filename):
+#     """
+#     Save a scenario result to a JSONL file.
+
+#     Args:
+#         scenario_res: The scenario result to save
+#         jsonl_filename: Path to the JSONL file
+
+#     Returns:
+#         True if successful, False otherwise
+#     """
+#     try:
+#         # Convert dataclass to dictionary if needed
+#         scenario_dict = asdict(scenario_res) if hasattr(scenario_res, "__dataclass_fields__") else scenario_res
+
+#         # Write to JSONL file
+#         with open(jsonl_filename, "a") as f:
+#             f.write(f"{scenario_dict}\n")
+#         return True
+#     except Exception as e:
+#         print(f"Error saving scenario result: {e}")
+#         return False
+
+
 def save_scenario_result(scenario_res, jsonl_filename):
     """
     Save a scenario result to a JSONL file.
@@ -93,9 +126,10 @@ def save_scenario_result(scenario_res, jsonl_filename):
         # Convert dataclass to dictionary if needed
         scenario_dict = asdict(scenario_res) if hasattr(scenario_res, "__dataclass_fields__") else scenario_res
 
-        # Write to JSONL file
+        # Write to JSONL file using json module
         with open(jsonl_filename, "a") as f:
-            f.write(f"{scenario_dict}\n")
+            json.dump(scenario_dict, f)
+            f.write("\n")
         return True
     except Exception as e:
         print(f"Error saving scenario result: {e}")

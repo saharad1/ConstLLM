@@ -13,7 +13,5 @@ def print_gpu_info():
 
     for i in range(torch.cuda.device_count()):
         name = torch.cuda.get_device_name(i)
-        avail, total = (
-            x / 1024**3 for x in torch.cuda.mem_get_info(i)
-        )  # Convert to GB
+        avail, total = (x / 1024**3 for x in torch.cuda.mem_get_info(i))  # Convert to GB
         print(f"GPU {i}: {name} | Available: {avail:.2f} GB | Total: {total:.2f} GB")

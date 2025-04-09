@@ -5,11 +5,11 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
-from transformers import AutoTokenizer, EarlyStoppingCallback
+from transformers import AutoTokenizer, EarlyStoppingCallback, TrainerCallback
 from trl import DPOConfig, DPOTrainer
-from unsloth import FastLanguageModel, PatchDPOTrainer, is_bfloat16_supported
+from unsloth import FastLanguageModel, is_bfloat16_supported
 
-PatchDPOTrainer()
+# PatchDPOTrainer()
 import wandb
 from src.pipeline_dpo.prepare_dataset_to_dpo import load_dpo_dataset
 from src.utils.general import print_gpu_info
@@ -46,6 +46,7 @@ def train_dpo_with_config(
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_name,
         dtype=torch.bfloat16,
+        load_in_4bit=False,
     )
 
     model = FastLanguageModel.get_peft_model(
@@ -53,7 +54,7 @@ def train_dpo_with_config(
         r=32,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         lora_alpha=32,
-        lora_dropout=0.05,
+        lora_dropout=0,
         bias="none",
         use_gradient_checkpointing="unsloth",
     )
@@ -120,7 +121,7 @@ def train_dpo_with_config(
         weight_decay=config.weight_decay,
         eval_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="rewards/margins",  # Use the metric for best model (no need to add eval/)
+        metric_for_best_model="combined_metric",
         greater_is_better=True,
     )
 
@@ -134,6 +135,26 @@ def train_dpo_with_config(
         eval_dataset=eval_dataset,
         callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
     )
+
+    # Add a custom callback to compute and log the combined metric
+    class CombinedMetricCallback(TrainerCallback):
+        def on_evaluate(self, args, state, control, metrics=None, **kwargs):
+            if metrics is None:
+                return
+
+            # Extract reward and margin metrics
+            reward = metrics.get("eval/rewards/rewards", 0)
+            margin = metrics.get("eval/rewards/margins", 0)
+
+            # Compute combined metric with fixed weights
+            combined_metric = 0.7 * reward + 0.3 * margin
+
+            # Log the combined metric to both metrics dict and wandb
+            metrics["combined_metric"] = combined_metric
+            wandb.log({"eval/combined_metric": combined_metric})
+
+    # Add the custom callback to the trainer
+    trainer.add_callback(CombinedMetricCallback())
 
     # Start training
     print(
@@ -156,7 +177,7 @@ def run_sweep(
     include_scores=False,
     dataset_name="ecqa",  # ecqa or codah
     similarity_metric="cosine",  # "spearman" or "cosine"
-    diff_threshold_train=0.2,
+    diff_threshold_train=None,
     diff_threshold_eval=None,
     sweep_count=10,
 ):
@@ -175,17 +196,17 @@ def run_sweep(
     # Define sweep configuration
     sweep_config = {
         "method": "bayes",  # Bayesian optimization
-        "metric": {"name": "eval/rewards/margins", "goal": "maximize"},
+        "metric": {"name": "eval/combined_metric", "goal": "maximize"},  # Keep the eval/ prefix for wandb
         "parameters": {
             "learning_rate": {"min": 8e-7, "max": 5e-6, "distribution": "log_uniform_values"},
             "beta": {"min": 0.3, "max": 0.5, "distribution": "uniform"},
-            "per_device_train_batch_size": {"values": [32]},
-            "gradient_accumulation_steps": {"values": [4]},
+            "per_device_train_batch_size": {"values": [16, 8]},  # Reduced from 32
+            "gradient_accumulation_steps": {"values": [8, 16]},  # Increased from 4
             "warmup_ratio": {"min": 0.1, "max": 0.2, "distribution": "uniform"},
             "weight_decay": {"min": 0.01, "max": 0.05, "distribution": "uniform"},
-            "num_train_epochs": {"values": [5]},
+            "num_train_epochs": {"values": [5, 10]},
             "lr_scheduler_type": {"values": ["linear"]},
-            "diff_threshold_train": {"min": 0, "max": 0.2, "distribution": "uniform"},
+            # "diff_threshold_train": {"min": 0, "max": 0.2, "distribution": "uniform"},
         },
     }
     # Create a unique sweep project name that includes model, dataset and similarity metric

@@ -26,7 +26,7 @@ def configure_attribution_methods(attribution_method_name, phase=None):
         params = MethodParams.set_params(method_name, n_samples=500, perturbations_per_eval=500)
     elif attribution_method_upper == "LIG":
         method_name = AttributionMethod.LIG.name
-        params = MethodParams.set_params(method_name, n_steps=20)
+        params = MethodParams.set_params(method_name, n_steps=25)
     elif attribution_method_upper == "SHAPLEY_VALUE_SAMPLING":
         method_name = AttributionMethod.SHAPLEY_VALUE_SAMPLING.name
         params = MethodParams.set_params(method_name, n_samples=500)

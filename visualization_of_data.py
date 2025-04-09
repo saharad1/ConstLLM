@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def analyze_spearman_differences(jsonl_file, num_bins=8, dataset_name="", output_dir=None):
+def analyze_cosine_differences(jsonl_file, num_bins=8, dataset_name="", output_dir=None):
     """
-    Analyze and visualize the differences between best and worst Spearman scores
+    Analyze and visualize the differences between best and worst cosine similarity scores
     from a JSONL file containing scenario data.
 
     Parameters:
@@ -44,8 +44,8 @@ def analyze_spearman_differences(jsonl_file, num_bins=8, dataset_name="", output
     worst_scores = []
 
     for scenario in data:
-        best_score = scenario["explanation_best"]["spearman_score"]
-        worst_score = scenario["explanation_worst"]["spearman_score"]
+        best_score = scenario["cosine_best"]["cosine_score"]
+        worst_score = scenario["cosine_worst"]["cosine_score"]
         difference = best_score - worst_score
 
         best_scores.append(best_score)
@@ -75,9 +75,9 @@ def analyze_spearman_differences(jsonl_file, num_bins=8, dataset_name="", output
     counts, bin_edges, _ = plt.hist(differences, bins=num_bins, alpha=0.7, color="skyblue", edgecolor="black")
 
     # Add labels and title
-    plt.xlabel("Difference between Best and Worst Spearman Scores")
+    plt.xlabel("Difference between Best and Worst Cosine Similarity Scores")
     plt.ylabel("Number of Scenarios")
-    plt.title(f"{dataset_name}: Distribution of Differences Between Best and Worst Spearman Scores")
+    plt.title(f"{dataset_name}: Distribution of Differences Between Best and Worst Cosine Similarity Scores")
     plt.grid(axis="y", alpha=0.3)
 
     # Add vertical lines for mean and median
@@ -105,7 +105,7 @@ def analyze_spearman_differences(jsonl_file, num_bins=8, dataset_name="", output
     if output_dir is None:
         output_dir = os.path.dirname(jsonl_file) or "."
 
-    output_path = os.path.join(output_dir, "spearman_score_differences.png")
+    output_path = os.path.join(output_dir, "cosine_score_differences.png")
     plt.savefig(output_path, dpi=300)
     print(f"Figure saved to: {output_path}")
 
@@ -126,7 +126,9 @@ def analyze_spearman_differences(jsonl_file, num_bins=8, dataset_name="", output
 
 # Example usage:
 if __name__ == "__main__":
-    file_path = Path("dpo_datasets/codah_dpo_datasets/codah_250219_165846_LIME.jsonl")
-    dataset_name = "CodaH-LIME"
+    file_path = Path(
+        "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1_cleaned.jsonl"
+    )
+    dataset_name = "ECQA-LIME"
     # Analyze the JSONL file
-    results = analyze_spearman_differences(str(file_path), num_bins=50, dataset_name=dataset_name, output_dir=None)
+    results = analyze_cosine_differences(str(file_path), num_bins=50, dataset_name=dataset_name, output_dir=None)

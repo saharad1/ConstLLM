@@ -10,7 +10,7 @@ from datasets.dataset_dict import DatasetDict, IterableDatasetDict
 from datasets.iterable_dataset import IterableDataset
 from torch.utils.data import DataLoader
 
-from src.collect_data.comp_score import (
+from src.collect_data.comp_similarity_scores import (
     calculate_cosine_similarity,
     calculate_spearman_correlation,
 )
@@ -216,11 +216,13 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
 # Example usage
 if __name__ == "__main__":
     # Example usage - Create clean dataset with preprocessed cosine similarities
-    raw_dpo_dataset_path = Path("dpo_datasets/ecqa_dpo_datasets/ecqa_250221_181714_LIME.jsonl")
+    raw_dpo_dataset_path = Path(
+        "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1_fixed.jsonl"
+    )
 
     # Create output directory
-    output_dir = Path("dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME")
-    cleaned_dpo_dataset_path = output_dir / "cleaned_ecqa_250221_181714_LIME.jsonl"
+    output_dir = Path("data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1")
+    cleaned_dpo_dataset_path = output_dir / "ecqa_20250404_120218_LIME_llama3.1_cleaned.jsonl"
 
     # Process with cosine similarities
     preprocess_jsonl(raw_dpo_dataset_path, cleaned_dpo_dataset_path)
