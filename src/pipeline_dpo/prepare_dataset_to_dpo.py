@@ -16,6 +16,7 @@ def load_dpo_dataset(
     include_scores=False,
     diff_threshold: Optional[float] = None,
     similarity_metric: str = "spearman",  # Can be "spearman" or "cosine"
+    score_scale_factor: float = 1,
 ) -> Dataset:
     """
     Efficiently loads a JSONL dataset into a Hugging Face Dataset format for DPOTrainer.
@@ -94,8 +95,8 @@ def load_dpo_dataset(
 
                     # Include scores if requested
                     if include_scores:
-                        example["score_chosen"] = item[best_key][score_key]
-                        example["score_rejected"] = item[worst_key][score_key]
+                        example["score_chosen"] = item[best_key][score_key] * score_scale_factor
+                        example["score_rejected"] = item[worst_key][score_key] * score_scale_factor
 
                     data_list.append(example)
                     kept_count += 1

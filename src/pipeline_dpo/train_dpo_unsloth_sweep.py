@@ -26,6 +26,7 @@ def train_dpo_with_config(
     similarity_metric: str,
     diff_threshold_train: float = None,
     diff_threshold_eval: float = None,
+    score_scale_factor: float = 1.0,
     include_scores=False,
 ) -> DPOTrainer:
     """Run a single DPO training with the given config parameters."""
@@ -87,10 +88,18 @@ def train_dpo_with_config(
     print(f"Using eval dataset: {eval_path}")
 
     train_dataset = load_dpo_dataset(
-        file_path=str(train_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold_train, include_scores=include_scores
+        file_path=str(train_path),
+        similarity_metric=similarity_metric,
+        diff_threshold=diff_threshold_train,
+        include_scores=include_scores,
+        score_scale_factor=score_scale_factor,
     )
     eval_dataset = load_dpo_dataset(
-        file_path=str(eval_path), similarity_metric=similarity_metric, diff_threshold=diff_threshold_eval, include_scores=include_scores
+        file_path=str(eval_path),
+        similarity_metric=similarity_metric,
+        diff_threshold=diff_threshold_eval,
+        include_scores=include_scores,
+        score_scale_factor=score_scale_factor,
     )
     print(f"Number of train samples: {len(train_dataset)}")
     print(f"Number of eval samples: {len(eval_dataset)}")
@@ -121,7 +130,7 @@ def train_dpo_with_config(
         weight_decay=config.weight_decay,
         eval_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="combined_metric",
+        metric_for_best_model="rewards/margins",
         greater_is_better=True,
     )
 
@@ -142,15 +151,20 @@ def train_dpo_with_config(
             if metrics is None:
                 return
 
-            # Extract reward and margin metrics
-            reward = metrics.get("eval/rewards/rewards", 0)
-            margin = metrics.get("eval/rewards/margins", 0)
+            # Print the available metrics for debugging
+            print(f"Available metrics: {list(metrics.keys())}")
+
+            # Extract reward and margin metrics - these metrics are provided by the DPO trainer
+            # Transformers stores them with eval_ prefix internally
+            reward = metrics.get("eval_rewards/chosen", 0)
+            margin = metrics.get("eval_rewards/margins", 0)
 
             # Compute combined metric with fixed weights
             combined_metric = 0.7 * reward + 0.3 * margin
 
-            # Log the combined metric to both metrics dict and wandb
-            metrics["combined_metric"] = combined_metric
+            # Store the combined metric in the metrics with the same format as other metrics in Transformers
+            metrics["eval_combined_metric"] = combined_metric
+            # When logging to wandb, use the slash format
             wandb.log({"eval/combined_metric": combined_metric})
 
     # Add the custom callback to the trainer
@@ -179,6 +193,7 @@ def run_sweep(
     similarity_metric="cosine",  # "spearman" or "cosine"
     diff_threshold_train=None,
     diff_threshold_eval=None,
+    score_scale_factor=1.0,
     sweep_count=10,
 ):
     """
@@ -199,8 +214,8 @@ def run_sweep(
         "metric": {"name": "eval/combined_metric", "goal": "maximize"},  # Keep the eval/ prefix for wandb
         "parameters": {
             "learning_rate": {"min": 8e-7, "max": 5e-6, "distribution": "log_uniform_values"},
-            "beta": {"min": 0.3, "max": 0.5, "distribution": "uniform"},
-            "per_device_train_batch_size": {"values": [16, 8]},  # Reduced from 32
+            "beta": {"min": 3, "max": 7, "distribution": "uniform"},
+            "per_device_train_batch_size": {"values": [8, 16]},  # Reduced from 32
             "gradient_accumulation_steps": {"values": [8, 16]},  # Increased from 4
             "warmup_ratio": {"min": 0.1, "max": 0.2, "distribution": "uniform"},
             "weight_decay": {"min": 0.01, "max": 0.05, "distribution": "uniform"},
@@ -246,6 +261,7 @@ def run_sweep(
                 "diff_threshold_eval": diff_threshold_eval,
                 "dataset": dataset_name,
                 "model": model_name,
+                "score_scale_factor": score_scale_factor,
             },
             allow_val_change=True,
         )
@@ -309,6 +325,9 @@ if __name__ == "__main__":
 
     # Convert dataset_path to Path object
     dataset_path = Path(args.dataset_path)
+
+    # set default score_scale_factor
+    score_scale_factor = 100.0
 
     # Run sweep with parsed arguments
     run_sweep(
