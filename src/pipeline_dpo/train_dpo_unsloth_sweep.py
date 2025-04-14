@@ -122,7 +122,7 @@ def train_dpo_with_config(
         warmup_ratio=config.warmup_ratio,
         logging_steps=10,
         save_strategy="epoch",
-        save_total_limit=3,
+        save_total_limit=2,
         beta=config.beta,
         fp16=not is_bfloat16_supported(),
         bf16=is_bfloat16_supported(),
@@ -160,7 +160,7 @@ def train_dpo_with_config(
             margin = metrics.get("eval_rewards/margins", 0)
 
             # Compute combined metric with fixed weights
-            combined_metric = 0.7 * reward + 0.3 * margin
+            combined_metric = 0.5 * reward + 0.5 * margin
 
             # Store the combined metric in the metrics with the same format as other metrics in Transformers
             metrics["eval_combined_metric"] = combined_metric
@@ -247,7 +247,7 @@ def run_sweep(
         config = wandb.config
 
         # Create a more descriptive run name
-        run_name = f"{dataset_name}_{similarity_metric}_lr{config.learning_rate:.2e}_beta{config.beta:.2f}_{timestamp}"
+        run_name = f"{dataset_name}_{timestamp}_lr{config.learning_rate:.2e}_beta{config.beta:.2f}"
 
         # Update the run name
         run.name = run_name
@@ -320,14 +320,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--sweep_count", type=int, default=10, help="Number of sweeps to run")
     parser.add_argument("--include_scores", action="store_true", help="Whether to include scores in the training data")
+    parser.add_argument("--score_scale_factor", type=float, default=100.0, help="Scale factor for scores")
 
     args = parser.parse_args()
 
     # Convert dataset_path to Path object
     dataset_path = Path(args.dataset_path)
-
-    # set default score_scale_factor
-    score_scale_factor = 100.0
 
     # Run sweep with parsed arguments
     run_sweep(
@@ -339,4 +337,5 @@ if __name__ == "__main__":
         diff_threshold_eval=args.diff_threshold_eval,
         sweep_count=args.sweep_count,
         include_scores=args.include_scores,
+        score_scale_factor=args.score_scale_factor,
     )

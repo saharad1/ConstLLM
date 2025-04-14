@@ -4,9 +4,9 @@
 export CUDA_VISIBLE_DEVICES="2"
 
 # Default paths - adjust these as needed
-MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr2.29e-06_beta0.46_250329_122429/best_model"
-# MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
-DATASET_PATH="dpo_datasets/cleaned_ecqa_dpo_datasets/cleaned_ecqa_250221_181714_LIME/test_1089.jsonl"
+# MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr2.29e-06_beta0.46_250329_122429/best_model"
+MODEL_PATH="unsloth/Meta-Llama-3.1-8B-Instruct"
+DATASET_PATH="data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/test_1089.jsonl"
 
 
 # Better detection of model ID vs local path

@@ -15,6 +15,7 @@ python -m src.pipeline_dpo.train_dpo_unsloth_sweep \
   --diff_threshold_train 0 \
   --diff_threshold_eval 0 \
   --sweep_count 10 \
-  --include_scores
+  --include_scores \
+  --score_scale_factor 100 \
 
 echo "DPO training sweep completed!"

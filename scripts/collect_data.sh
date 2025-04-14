@@ -33,13 +33,13 @@ export CUDA_VISIBLE_DEVICES=1
 # arc_challenge
 
 # Default values
-MODEL_ID="unsloth/Qwen2.5-7B-Instruct"
-DATASET="ecqa"
+MODEL_ID="unsloth/Meta-Llama-3.1-8B-Instruct"
+DATASET="arc_easy"
 ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true
-RESUME_RUN=""
+RESUME_RUN="arc_easy_20250412_110247_LIME_llama3.1"
 TEMPERATURE=0.7
 SEED=42
 
@@ -142,7 +142,7 @@ if [[ "$USE_WANDB" == false ]]; then
 fi
 
 if [[ -n "$RESUME_RUN" ]]; then
-    CMD="$CMD --resume_run \"$RESUME_RUN\""
+    CMD="$CMD --resume_run $RESUME_RUN"
 fi
 
 # Print command
