@@ -111,8 +111,8 @@ python -m src.test_evaluations.eval_trained_dpo \
   --attribution_method "$ATTRIBUTION_METHOD" \
   --num_dec_exp "$NUM_DEC_EXP" \
   --temperature "$TEMPERATURE" \
-  --wandb "$USE_WANDB" \
   --seed "$SEED" \
+  --wandb "$USE_WANDB" \
   $SUBSET $OUTPUT_DIR $IS_MODEL_ID
 
 echo "Evaluation completed!"

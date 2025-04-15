@@ -34,12 +34,12 @@ export CUDA_VISIBLE_DEVICES=1
 
 # Default values
 MODEL_ID="unsloth/Meta-Llama-3.1-8B-Instruct"
-DATASET="arc_easy"
+DATASET="arc_challenge"
 ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true
-RESUME_RUN="arc_easy_20250412_110247_LIME_llama3.1"
+RESUME_RUN=""
 TEMPERATURE=0.7
 SEED=42
 

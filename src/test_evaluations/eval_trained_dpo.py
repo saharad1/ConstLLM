@@ -57,7 +57,7 @@ def eval_trained_dpo(
     if not is_model_id:
         if isinstance(model_path, str):
             model_path = Path(model_path)
-    
+
     if isinstance(dataset_path, str):
         dataset_path = Path(dataset_path)
 
@@ -198,7 +198,7 @@ def eval_trained_dpo(
         print(f"Loading model from HuggingFace with ID: {model_path}")
     else:
         print(f"Loading model from local path: {model_path}")
-    
+
     # Convert model_path to string to ensure compatibility with LLMAnalyzer
     model_path_str = str(model_path)
     llm_analyzer = LLMAnalyzer(model_id=model_path_str, temperature=temperature)
@@ -211,6 +211,7 @@ def eval_trained_dpo(
 
     # Process scenarios
     start_time_total = time.time()
+    total_time_sum = 0  # Initialize total time sum
     for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
         # Get scenario ID (ensure it exists)
         if hasattr(scenario_item, "scenario_id"):
@@ -250,18 +251,21 @@ def eval_trained_dpo(
             # Mark as processed
             processed_scenarios.add(scenario_id)
 
-            # Calculate metrics
+            # Calculate and add timing information
+            end_time_scenario = time.time()
+            scenario_duration = end_time_scenario - start_time_scenario
+            total_time_sum += scenario_duration  # Update total time sum
+
+            # Calculate metrics, now including timing arguments
             metrics, success_sum = calculate_metrics(
                 scenario_res=scenario_res,
                 success_sum=success_sum,
                 iteration=iteration,
                 spearman_sums=spearman_sums,
                 cosine_sums=cosine_sums,
+                scenario_time=scenario_duration,  # Pass scenario duration
+                total_time_sum=total_time_sum,  # Pass total time sum
             )
-
-            # Calculate and add timing information
-            end_time_scenario = time.time()
-            scenario_duration = end_time_scenario - start_time_scenario
 
             # Add timing metrics (per-scenario timing for detailed analysis)
             metrics["scenario/duration_seconds"] = scenario_duration
