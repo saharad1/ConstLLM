@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES="2"
+export CUDA_VISIBLE_DEVICES="0"
 
 # Default paths - adjust these as needed
-# MODEL_PATH="trained_models/ecqa_models/meta-llama/Meta-Llama-3.1-8B-Instruct/ecqa_cosine_lr2.29e-06_beta0.46_250329_122429/best_model"
-MODEL_PATH="unsloth/Meta-Llama-3.1-8B-Instruct"
+# MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250421_121737_lr2.79e-06_beta6.03/best_model"
+MODEL_PATH="unsloth/Qwen2.5-7B-Instruct"
 DATASET_PATH="data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/test_1089.jsonl"
 
 
@@ -71,7 +71,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --wandb|-w)
-      USE_WANDB=true  # Enable wandb
+      USE_WANDB=true 
       shift
       ;;
     --subset|-s)
@@ -103,6 +103,9 @@ echo "Attribution method: $ATTRIBUTION_METHOD"
 echo "WandB logging: $([ "$USE_WANDB" = true ] && echo "enabled" || echo "disabled")"
 echo "Model type: $([ -n "$IS_MODEL_ID" ] && echo "HuggingFace model ID" || echo "Local model path")"
 echo "Base seed: $SEED"
+
+# Set WANDB_MODE to offline/online
+export WANDB_MODE=offline
 
 # Run the evaluation script
 python -m src.test_evaluations.eval_trained_dpo \

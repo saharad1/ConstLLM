@@ -9,7 +9,7 @@ set -e
 
 # GPU ID to use
 # Set the GPU to use
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=2
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
@@ -32,14 +32,13 @@ export CUDA_VISIBLE_DEVICES=1
 # arc_easy
 # arc_challenge
 
-# Default values
-MODEL_ID="unsloth/Meta-Llama-3.1-8B-Instruct"
-DATASET="arc_challenge"
-ATTRIBUTION_METHOD="LIME"
+MODEL_ID="meta-llama/Llama-3.2-3B-Instruct"
+DATASET="ecqa"
+ATTRIBUTION_METHOD="LIG"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true
-RESUME_RUN=""
+RESUME_RUN="ecqa_20250403_133655_LIG_llama3.2"
 TEMPERATURE=0.7
 SEED=42
 

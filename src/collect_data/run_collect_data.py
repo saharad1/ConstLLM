@@ -96,8 +96,13 @@ def run_collect_data(
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Set up run environment
-    run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = setup_run_environment(
-        dataset_name=dataset_name, model_id=model_id, attribution_method_name=attribution_method_name, resume_run=resume_run
+    run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = (
+        setup_run_environment(
+            dataset_name=dataset_name,
+            model_id=model_id,
+            attribution_method_name=attribution_method_name,
+            resume_run=resume_run,
+        )
     )
 
     # Set up wandb if enabled

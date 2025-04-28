@@ -1,3 +1,4 @@
+from unsloth import FastLanguageModel, is_bfloat16_supported  # isort:skip
 import argparse
 import os
 import sys
@@ -7,7 +8,6 @@ from pathlib import Path
 import torch
 from transformers import AutoTokenizer, EarlyStoppingCallback, TrainerCallback
 from trl import DPOConfig, DPOTrainer
-from unsloth import FastLanguageModel, is_bfloat16_supported
 
 # PatchDPOTrainer()
 import wandb
@@ -19,7 +19,7 @@ print_gpu_info()
 
 def train_dpo_with_config(
     config,
-    model_name: str,
+    model_id: str,
     dataset_path: Path,
     run_name: str,
     dataset_name: str,
@@ -38,14 +38,14 @@ def train_dpo_with_config(
             "diff_threshold_train": diff_threshold_train,
             "diff_threshold_eval": diff_threshold_eval,
             "dataset": dataset_name,
-            "model": model_name,
+            "model_id": model_id,
         },
         allow_val_change=True,
     )
 
     # Load the model and tokenizer
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=model_name,
+        model_name=model_id,
         dtype=torch.bfloat16,
         load_in_4bit=False,
     )
@@ -62,7 +62,9 @@ def train_dpo_with_config(
 
     # Ensure padding token exists
     if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({"pad_token": "[PAD]" if "mistral" in getattr(tokenizer, "name_or_path", "").lower() else "<|pad|>"})
+        tokenizer.add_special_tokens(
+            {"pad_token": "[PAD]" if "mistral" in getattr(tokenizer, "name_or_path", "").lower() else "<|pad|>"}
+        )
         model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
         model.config.pad_token_id = tokenizer.pad_token_id
 
@@ -105,9 +107,14 @@ def train_dpo_with_config(
     print(f"Number of eval samples: {len(eval_dataset)}")
 
     # Add dataset sizes to wandb config
-    wandb.config.update({"train_dataset_size": len(train_dataset), "eval_dataset_size": len(eval_dataset)}, allow_val_change=True)
+    wandb.config.update(
+        {"train_dataset_size": len(train_dataset), "eval_dataset_size": len(eval_dataset)}, allow_val_change=True
+    )
 
-    output_dir = Path("trained_models") / f"{dataset_name}_models" / model_name / run_name
+    # Extract a simplified model name for the run name
+    model_name = model_id.split("/")[-1] if "/" in model_id else model_id
+
+    output_dir = Path("models") / dataset_name / model_name / run_name
 
     # Create DPO Training Config from sweep parameters
     training_args = DPOConfig(
@@ -187,7 +194,7 @@ def train_dpo_with_config(
 
 def run_sweep(
     dataset_path: Path,
-    model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
     include_scores=False,
     dataset_name="ecqa",  # ecqa or codah
     similarity_metric="cosine",  # "spearman" or "cosine"
@@ -225,7 +232,7 @@ def run_sweep(
         },
     }
     # Create a unique sweep project name that includes model, dataset and similarity metric
-    model_short_name = model_name.split("/")[-1]  # Extract just the model name without organization
+    model_short_name = model_id.split("/")[-1] if "/" in model_id else model_id  # Extract just the model name
     sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}_sweep"
 
     # Include fixed parameters in the sweep name
@@ -260,7 +267,7 @@ def run_sweep(
                 # "diff_threshold_train": diff_threshold_train,
                 "diff_threshold_eval": diff_threshold_eval,
                 "dataset": dataset_name,
-                "model": model_name,
+                "model_id": model_id,
                 "score_scale_factor": score_scale_factor,
             },
             allow_val_change=True,
@@ -272,7 +279,7 @@ def run_sweep(
         # Run training with these hyperparameters and fixed parameters
         train_dpo_with_config(
             config=config,
-            model_name=model_name,
+            model_id=model_id,
             dataset_path=dataset_path,
             run_name=run_name,  # Use the timestamp run name
             dataset_name=dataset_name,
@@ -303,7 +310,9 @@ if __name__ == "__main__":
         required=True,
         help="Path to the dataset directory",
     )
-    parser.add_argument("--model_name", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct", help="Name of the model to use")
+    parser.add_argument(
+        "--model_id", type=str, default="meta-llama/Meta-Llama-3.1-8B-Instruct", help="Name of the model to use"
+    )
     parser.add_argument("--dataset_name", type=str, default="ecqa", help="Name of the dataset (e.g., ecqa, codah)")
     parser.add_argument(
         "--similarity_metric",
@@ -313,10 +322,16 @@ if __name__ == "__main__":
         help="Similarity metric to use (cosine or spearman)",
     )
     parser.add_argument(
-        "--diff_threshold_train", type=float, default=0.2, help="Threshold for filtering examples based on score difference"
+        "--diff_threshold_train",
+        type=float,
+        default=0.2,
+        help="Threshold for filtering examples based on score difference",
     )
     parser.add_argument(
-        "--diff_threshold_eval", type=float, default=None, help="Threshold for filtering examples based on score difference"
+        "--diff_threshold_eval",
+        type=float,
+        default=None,
+        help="Threshold for filtering examples based on score difference",
     )
     parser.add_argument("--sweep_count", type=int, default=10, help="Number of sweeps to run")
     parser.add_argument("--include_scores", action="store_true", help="Whether to include scores in the training data")
@@ -330,7 +345,7 @@ if __name__ == "__main__":
     # Run sweep with parsed arguments
     run_sweep(
         dataset_path=dataset_path,
-        model_name=args.model_name,
+        model_id=args.model_id,
         dataset_name=args.dataset_name,
         similarity_metric=args.similarity_metric,
         diff_threshold_train=args.diff_threshold_train,

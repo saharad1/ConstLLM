@@ -89,8 +89,10 @@ def eval_trained_dpo(
         dataset_type = "ecqa"
     elif "codah" in dataset_path_str.lower():
         dataset_type = "codah"
-    elif "cqa" in dataset_path_str.lower():
-        dataset_type = "cqa"
+    elif "arc_easy" in dataset_path_str.lower():
+        dataset_type = "arc_easy"
+    elif "arc_challenge" in dataset_path_str.lower():
+        dataset_type = "arc_challenge"
     else:
         # Fallback to using the stem of the filename
         dataset_type = dataset_path.stem.split("_")[0]
@@ -101,7 +103,7 @@ def eval_trained_dpo(
     # Set up run environment
     if output_dir is None:
         # Use clean dataset type (ecqa/codah) and model name for directory structure
-        base_output_dir = Path("data") / f"{dataset_type}_eval_results" / grandparent_name / model_name
+        base_output_dir = Path("data") / "eval_results" / dataset_type / grandparent_name / model_name
     else:
         base_output_dir = Path(output_dir)
 
@@ -109,7 +111,7 @@ def eval_trained_dpo(
 
     # Create a unique run name
     timestamp = time.strftime("%y%m%d_%H%M%S")
-    run_name = f"eval_{dataset_name}_{attribution_method_name}_{timestamp}"
+    run_name = f"eval_{timestamp}_{dataset_name}_{attribution_method_name}"
 
     # Create output directories
     output_dir = base_output_dir / run_name
@@ -344,7 +346,9 @@ def eval_trained_dpo(
                 "summary/avg_cosine_median": progress_data.get("avg_cosine_median", 0),
                 "summary/avg_cosine_worst": progress_data.get("avg_cosine_worst", 0),
                 "summary/total_duration_seconds": total_duration,
-                "summary/avg_scenario_duration_seconds": total_duration / len(processed_scenarios) if processed_scenarios else 0,
+                "summary/avg_scenario_duration_seconds": (
+                    total_duration / len(processed_scenarios) if processed_scenarios else 0
+                ),
             }
             # print("Logging summary metrics to WandB...")
             # wandb.log(summary_metrics)
@@ -370,7 +374,9 @@ def eval_trained_dpo(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate trained DPO model")
-    parser.add_argument("--model_path", type=str, required=True, help="Path to the trained model directory or HuggingFace model ID")
+    parser.add_argument(
+        "--model_path", type=str, required=True, help="Path to the trained model directory or HuggingFace model ID"
+    )
     parser.add_argument("--dataset_path", type=str, required=True, help="Path to the dataset file (JSONL format)")
     parser.add_argument("--attribution_method", type=str, default="LIME", help="Attribution method to use")
     parser.add_argument("--num_dec_exp", type=int, default=5, help="Number of explanations per decision")
@@ -378,7 +384,9 @@ if __name__ == "__main__":
     parser.add_argument("--wandb", type=str, default="false", help="Enable/disable wandb logging (true/false)")
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for model generation")
     parser.add_argument("--output_dir", type=str, default=None, help="Custom output directory for results")
-    parser.add_argument("--is_model_id", action="store_true", help="Treat model_path as a HuggingFace model ID instead of a local path")
+    parser.add_argument(
+        "--is_model_id", action="store_true", help="Treat model_path as a HuggingFace model ID instead of a local path"
+    )
     parser.add_argument("--seed", type=int, default=42, help="Base seed for reproducible experiments")
 
     args = parser.parse_args()

@@ -1,3 +1,4 @@
+from unsloth import FastLanguageModel  # isort:skip
 from typing import Optional, cast
 
 import torch
@@ -10,7 +11,6 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from unsloth import FastLanguageModel
 
 
 class ModelTokenizerBundle:
@@ -178,4 +178,6 @@ class ModelTokenizerBundle:
             str: A string describing the ModelTokenizerBundle instance.
         """
         quantization_status = "with" if self.use_quantization else "without"
-        return f"ModelTokenizerBundle(model_id={self.model_id}, device={self.device}, {quantization_status} quantization)"
+        return (
+            f"ModelTokenizerBundle(model_id={self.model_id}, device={self.device}, {quantization_status} quantization)"
+        )

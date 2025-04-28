@@ -9,7 +9,7 @@ DATASET_PATH="data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_
 # Run the DPO training sweep script with command-line arguments
 python -m src.pipeline_dpo.train_dpo_unsloth_sweep \
   --dataset_path "$DATASET_PATH" \
-  --model_name "unsloth/Meta-Llama-3.1-8B-Instruct" \
+  --model_id "unsloth/Meta-Llama-3.1-8B-Instruct" \
   --dataset_name "ecqa" \
   --similarity_metric "cosine" \
   --diff_threshold_train 0 \
