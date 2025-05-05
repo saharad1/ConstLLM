@@ -153,7 +153,9 @@ def preprocess_jsonl(input_path: Path, output_path: Path) -> None:
     print(f"Processed {len(cleaned_data)} entries with both Spearman and cosine metrics")
 
 
-def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eval_ratio=0.2, test_ratio=0.1, seed=42) -> None:
+def split_cleaned_jsonl(
+    input_path: Path, output_dir: Path, train_ratio=0.7, eval_ratio=0.2, test_ratio=0.1, seed=42
+) -> None:
     """
     Splits a JSONL file into train/eval/test sets based on given ratios.
     Cosine similarities are precalculated in the preprocessing step for
@@ -217,12 +219,12 @@ def split_cleaned_jsonl(input_path: Path, output_dir: Path, train_ratio=0.7, eva
 if __name__ == "__main__":
     # Example usage - Create clean dataset with preprocessed cosine similarities
     raw_dpo_dataset_path = Path(
-        "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1_fixed.jsonl"
+        "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5_fixed.jsonl"
     )
 
     # Create output directory
-    output_dir = Path("data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1")
-    cleaned_dpo_dataset_path = output_dir / "ecqa_20250404_120218_LIME_llama3.1_cleaned.jsonl"
+    output_dir = Path("data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5")
+    cleaned_dpo_dataset_path = output_dir / "ecqa_20250405_155841_LIME_Qwen2.5_cleaned.jsonl"
 
     # Process with cosine similarities
     preprocess_jsonl(raw_dpo_dataset_path, cleaned_dpo_dataset_path)

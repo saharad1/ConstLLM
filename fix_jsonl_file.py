@@ -100,8 +100,8 @@ def analyze_jsonl_file(jsonl_file, num_samples=5):
 
 if __name__ == "__main__":
     # Example usage
-    input_file = "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1.jsonl"
-    output_file = "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1_fixed.jsonl"
+    input_file = "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5.jsonl"
+    output_file = "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5_fixed.jsonl"
 
     # fix_jsonl_file_advanced(input_file, output_file)
     # print(f"Fixed JSONL file saved to {output_file}")
