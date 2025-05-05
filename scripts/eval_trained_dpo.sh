@@ -105,7 +105,7 @@ echo "Model type: $([ -n "$IS_MODEL_ID" ] && echo "HuggingFace model ID" || echo
 echo "Base seed: $SEED"
 
 # Set WANDB_MODE to offline/online
-export WANDB_MODE=offline
+export WANDB_MODE=online
 
 # Run the evaluation script
 python -m src.test_evaluations.eval_trained_dpo \
