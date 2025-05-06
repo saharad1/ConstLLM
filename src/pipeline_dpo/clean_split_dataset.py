@@ -1,14 +1,9 @@
+import argparse
 import json
 import os
 import random
 from pathlib import Path
-from typing import Any, Dict, Optional
-
-import torch
-from datasets import Dataset, load_dataset
-from datasets.dataset_dict import DatasetDict, IterableDatasetDict
-from datasets.iterable_dataset import IterableDataset
-from torch.utils.data import DataLoader
+from typing import Any, Dict
 
 from src.collect_data.comp_similarity_scores import (
     calculate_cosine_similarity,
@@ -215,21 +210,47 @@ def split_cleaned_jsonl(
     print(f"Dataset split successfully: {len(train_data)} train, {len(eval_data)} eval, {len(test_data)} test")
 
 
-# Example usage
 if __name__ == "__main__":
-    # Example usage - Create clean dataset with preprocessed cosine similarities
-    raw_dpo_dataset_path = Path(
-        "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5_fixed.jsonl"
+    parser = argparse.ArgumentParser(description="Clean and split a JSONL dataset")
+    parser.add_argument("input_file", type=str, help="Path to the input JSONL file")
+    parser.add_argument("--output_dir", type=str, help="Output directory (default: same as input file directory)")
+    parser.add_argument("--train_ratio", type=float, default=0.7, help="Ratio of data for training (default: 0.7)")
+    parser.add_argument("--eval_ratio", type=float, default=0.2, help="Ratio of data for evaluation (default: 0.2)")
+    parser.add_argument("--test_ratio", type=float, default=0.1, help="Ratio of data for testing (default: 0.1)")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for splitting (default: 42)")
+
+    args = parser.parse_args()
+
+    # Convert input file to Path object
+    input_path = Path(args.input_file)
+
+    # Determine output directory
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        # Use the same directory as the input file
+        output_dir = input_path.parent
+
+    # Create cleaned file path
+    cleaned_file_path = output_dir / f"{input_path.stem}_cleaned.jsonl"
+
+    print(f"Processing input file: {input_path}")
+    print(f"Output directory: {output_dir}")
+    print(f"Cleaned file will be saved to: {cleaned_file_path}")
+
+    # Clean the dataset
+    print("\nCleaning dataset...")
+    preprocess_jsonl(input_path, cleaned_file_path)
+
+    # Split the cleaned dataset
+    print("\nSplitting dataset...")
+    split_cleaned_jsonl(
+        cleaned_file_path,
+        output_dir,
+        train_ratio=args.train_ratio,
+        eval_ratio=args.eval_ratio,
+        test_ratio=args.test_ratio,
+        seed=args.seed,
     )
 
-    # Create output directory
-    output_dir = Path("data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5")
-    cleaned_dpo_dataset_path = output_dir / "ecqa_20250405_155841_LIME_Qwen2.5_cleaned.jsonl"
-
-    # Process with cosine similarities
-    preprocess_jsonl(raw_dpo_dataset_path, cleaned_dpo_dataset_path)
-
-    # Split without applying any threshold - thresholds will be applied during training
-    split_cleaned_jsonl(cleaned_dpo_dataset_path, output_dir)
-
-    print("Done Cleaning and Splitting the dataset.")
+    print("\nDone! Dataset has been cleaned and split into train/eval/test sets.")

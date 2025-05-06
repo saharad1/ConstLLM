@@ -15,6 +15,7 @@ export CUDA_VISIBLE_DEVICES=2
 # unsloth/mistral-7b-instruct-v0.3
 # unsloth/Meta-Llama-3.1-8B-Instruct
 # unsloth/Qwen2.5-7B-Instruct
+# unsloth/Llama-3.2-3B-Instruct
 # For LIG:
 # meta-llama/Meta-Llama-3.1-8B-Instruct
 # mistralai/Mistral-7B-Instruct-v0.3
@@ -32,13 +33,13 @@ export CUDA_VISIBLE_DEVICES=2
 # arc_easy
 # arc_challenge
 
-MODEL_ID="meta-llama/Llama-3.2-3B-Instruct"
-DATASET="ecqa"
-ATTRIBUTION_METHOD="LIG"
+MODEL_ID="unsloth/Llama-3.2-3B-Instruct"
+DATASET="codah"
+ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true
-RESUME_RUN="ecqa_20250403_133655_LIG_llama3.2"
+RESUME_RUN=""
 TEMPERATURE=0.7
 SEED=42
 

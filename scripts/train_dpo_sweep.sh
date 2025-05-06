@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES="2"  # This is also set in the Python script, but including here for clarity
+export CUDA_VISIBLE_DEVICES="0"  # This is also set in the Python script, but including here for clarity
 
 # Path to the dataset
-DATASET_PATH="data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1"
+DATASET_PATH="data/collection_data/arc_easy/unsloth_Meta-Llama-3.1-8B-Instruct/arc_easy_20250424_152104_LIME_llama3.1"
 
 # Run the DPO training sweep script with command-line arguments
 python -m src.pipeline_dpo.train_dpo_unsloth_sweep \
