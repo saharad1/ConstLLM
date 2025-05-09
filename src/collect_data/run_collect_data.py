@@ -19,6 +19,10 @@ from tqdm import tqdm
 import wandb
 from src.collect_data.attribution_config import get_attribution_methods_params
 from src.collect_data.collection_metrics import calculate_metrics, extract_choice
+from src.collect_data.comp_similarity_scores import (
+    calculate_cosine_similarity,
+    calculate_spearman_correlation,
+)
 from src.collect_data.dataset_loader import load_and_prepare_dataset
 from src.collect_data.run_collection_utils import (
     load_checkpoints,

@@ -4,6 +4,10 @@
 # This script runs the data collection process for attribution analysis
 #
 
+# Activate conda environment
+eval "$(conda shell.bash hook)"
+conda activate ConstLLM
+
 # Exit on error
 set -e
 

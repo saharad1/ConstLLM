@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Activate conda environment
+eval "$(conda shell.bash hook)"
+conda activate ConstLLM
+
 # Default values
 INPUT_FILE="data/collection_data/arc_easy/unsloth_Qwen2.5-7B-Instruct/arc_easy_20250417_125849_LIME_Qwen2.5/arc_easy_20250417_125849_LIME_Qwen2.5.jsonl"
 TRAIN_RATIO=0.7

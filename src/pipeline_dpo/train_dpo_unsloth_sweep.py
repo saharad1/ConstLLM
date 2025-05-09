@@ -163,16 +163,17 @@ def train_dpo_with_config(
 
             # Extract reward and margin metrics - these metrics are provided by the DPO trainer
             # Transformers stores them with eval_ prefix internally
-            reward = metrics.get("eval_rewards/chosen", 0)
-            margin = metrics.get("eval_rewards/margins", 0)
+            eval_reward_chosen = metrics.get("eval_rewards/chosen", 0)
+            eval_reward_margins = metrics.get("eval_rewards/margins", 0)
 
             # Compute combined metric with fixed weights
-            combined_metric = 0.5 * reward + 0.5 * margin
+            # combined_metric = 0.5 * eval_reward_chosen + 0.5 * eval_reward_margins
+            eval_combined_metric = eval_reward_margins
 
             # Store the combined metric in the metrics with the same format as other metrics in Transformers
-            metrics["eval_combined_metric"] = combined_metric
+            metrics["eval_combined_metric"] = eval_combined_metric
             # When logging to wandb, use the slash format
-            wandb.log({"eval/combined_metric": combined_metric})
+            wandb.log({"eval/combined_metric": eval_combined_metric})
 
     # Add the custom callback to the trainer
     trainer.add_callback(CombinedMetricCallback())
@@ -226,7 +227,7 @@ def run_sweep(
             "gradient_accumulation_steps": {"values": [8, 16]},  # Increased from 4
             "warmup_ratio": {"min": 0.1, "max": 0.2, "distribution": "uniform"},
             "weight_decay": {"min": 0.01, "max": 0.05, "distribution": "uniform"},
-            "num_train_epochs": {"values": [5, 10]},
+            "num_train_epochs": {"values": [10]},
             "lr_scheduler_type": {"values": ["linear"]},
             # "diff_threshold_train": {"min": 0, "max": 0.2, "distribution": "uniform"},
         },
