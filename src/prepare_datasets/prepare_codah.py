@@ -29,11 +29,13 @@ class PreparedCODAHDataset(Dataset):
 
         # Mode-specific instructions
         if self.mode == "exp1":
-            self.instruction_decision = "Choose the most plausible answer, respond only with the answer and the description:\n"
+            self.instruction_decision = "Choose the most plausible answer. Respond only with the letter and the full answer text from the list below:\n"
             self.instruction_decision_2 = "Respond only with 'A', 'B', 'C', or 'D'."
             self.instruction_explain = "Why did you make that choice? Explain briefly."
         elif self.mode == "exp2":
-            self.instruction_decision = "Choose the most plausible answer, provide your response in the following format:\n"
+            self.instruction_decision = (
+                "Choose the most plausible answer, provide your response in the following format:\n"
+            )
             self.instruction_decision_2 = "Decision: <The letter of your chosen answer followed by the full text of the chosen option>\nExplanation: <Your explanation>\n"
         else:
             raise ValueError(f"Mode '{self.mode}' is not supported.")

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
-from transformers import AutoTokenizer, EarlyStoppingCallback, TrainerCallback
+from transformers import EarlyStoppingCallback, TrainerCallback
 from trl import DPOConfig, DPOTrainer
 
 # PatchDPOTrainer()
@@ -324,7 +324,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--diff_threshold_train",
         type=float,
-        default=0.2,
+        default=0,
         help="Threshold for filtering examples based on score difference",
     )
     parser.add_argument(

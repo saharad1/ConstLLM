@@ -34,7 +34,9 @@ class LLMAnalyzer:
     ):
         if isinstance(model_id, str):
             # Load the tokenizer and model directly
-            model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(model_id=model_id, use_quantization=True, device=device)
+            model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(
+                model_id=model_id, use_quantization=True, device=device
+            )
             self.tokenizer = model_bundle.tokenizer
             self.model = model_bundle.model
             self.model.eval()
@@ -76,7 +78,10 @@ class LLMAnalyzer:
 
         # Ensure the lengths match
         if len(input_tokens) != len(seq_attr):
-            raise ValueError(f"Shape mismatch: input_tokens has length {len(input_tokens)}, " f"but seq_attr has length {len(seq_attr)}.")
+            raise ValueError(
+                f"Shape mismatch: input_tokens has length {len(input_tokens)}, "
+                f"but seq_attr has length {len(seq_attr)}."
+            )
         return list(zip(input_tokens, seq_attr))
 
     def generate_output(self, input_text: str) -> str:

@@ -24,7 +24,7 @@ class PreparedARCDataset(Dataset):
                 self.original_dataset = self.original_dataset.select(range(subset))
 
         # Mode-specific instructions
-        self.instruction_decision = "Choose the most plausible answer, respond only with the answer and the description:\n"
+        self.instruction_decision = "Choose the most plausible answer. Respond only with the letter and the full answer text from the list below:\n"
         # self.instruction_decision_2 = "Respond only with 'A', 'B', 'C', or 'D'."
         self.instruction_explain = "Why did you make that choice? Explain briefly."
 

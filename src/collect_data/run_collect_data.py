@@ -195,6 +195,8 @@ def run_collect_data(
             generation_seeds=generation_seeds,
             original_params=original_params,
             iteration=iteration,
+            output_dir=output_dir,
+            jsonl_filename=jsonl_filename,
         )
 
         # Add timing end and logging here
@@ -250,6 +252,70 @@ def run_collect_data(
     save_progress(progress_file, progress_data)
     if use_wandb:
         wandb.finish()
+
+
+def save_scenario_details(scenario_res, output_dir):
+    """Save detailed scenario information to a log file."""
+    # Create a log file in the output directory
+    log_file = output_dir / "scenario_details.log"
+
+    with open(log_file, "a") as f:
+        f.write("\n" + "=" * 50 + "\n")
+        f.write(f"\nScenario {scenario_res.get('scenario_id', 'unknown')}:\n")
+        f.write("-" * 50 + "\n")
+
+        # Print question
+        f.write(f"Question: {scenario_res.get('decision_prompt', 'N/A')}\n")
+
+        # Print correct answer and model's decision
+        f.write(f"\nCorrect Answer: {scenario_res.get('correct_label', 'N/A')}\n")
+        decision_output = scenario_res.get("decision_output", "")
+        if ")" in decision_output:
+            choice = decision_output.split(")", 1)[0] + ")"
+            f.write(f"Model's Decision: {choice.strip()}\n")
+        else:
+            f.write(f"Model's Decision: {decision_output}\n")
+
+        # Print explanations and their scores
+        if "explanation_attributions" in scenario_res and "decision_attributions" in scenario_res:
+            decision_attr = scenario_res["decision_attributions"]
+            explanation_attrs = scenario_res["explanation_attributions"]
+
+            # Calculate scores for all explanations
+            explanation_scores = []
+            for j, expl_attr in enumerate(explanation_attrs):
+                spearman_score = calculate_spearman_correlation(decision_attr, expl_attr)
+                cosine_score = calculate_cosine_similarity(decision_attr, expl_attr)
+
+                explanation_text = (
+                    scenario_res.get("explanation_outputs", ["N/A"])[j]
+                    if "explanation_outputs" in scenario_res
+                    else scenario_res.get("explanation", "N/A")
+                )
+
+                explanation_scores.append(
+                    {"index": j, "text": explanation_text, "spearman": spearman_score, "cosine": cosine_score}
+                )
+
+            # Sort explanations by Spearman correlation score
+            explanation_scores.sort(
+                key=lambda x: x["spearman"] if x["spearman"] is not None else float("-inf"), reverse=True
+            )
+
+            f.write("\nExplanations and Scores (sorted by Spearman correlation):\n")
+            for j, score_info in enumerate(explanation_scores):
+                f.write(f"\nExplanation {j+1}:\n")
+                f.write(f"Text: {score_info['text']}\n")
+                f.write(
+                    f"Spearman Correlation: {score_info['spearman']:.4f}\n"
+                    if score_info["spearman"] is not None
+                    else "Spearman Correlation: N/A\n"
+                )
+                f.write(
+                    f"Cosine Similarity: {score_info['cosine']:.4f}\n"
+                    if score_info["cosine"] is not None
+                    else "Cosine Similarity: N/A\n"
+                )
 
 
 if __name__ == "__main__":

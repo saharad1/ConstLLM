@@ -7,6 +7,7 @@ export CUDA_VISIBLE_DEVICES="1"
 # MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250421_121737_lr2.79e-06_beta6.03/best_model"
 MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250421_155856_lr4.65e-06_beta5.88/best_model"
 DATASET_PATH="data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/test_1089.jsonl"
+OUTPUT_DIR=""  # Initialize OUTPUT_DIR as empty string
 
 
 # Better detection of model ID vs local path

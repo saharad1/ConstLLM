@@ -5,6 +5,11 @@ from typing import Any, Dict, List
 
 import numpy as np
 
+from src.collect_data.comp_similarity_scores import (
+    calculate_cosine_similarity,
+    calculate_spearman_correlation,
+)
+
 
 def extract_choice(output: str) -> str:
     """
@@ -224,6 +229,107 @@ def print_metrics(metrics: Dict[str, Any]) -> None:
         print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
 
 
+def print_scenario_details(file_path: str, num_scenarios: int = 20, output_file: str = None) -> None:
+    """
+    Print detailed information about a specified number of scenarios from the dataset.
+
+    Args:
+        file_path: Path to the dataset file
+        num_scenarios: Number of scenarios to print (default: 20)
+        output_file: Optional path to output file. If provided, results will be written to this file
+    """
+    # Set up output stream
+    import sys
+
+    original_stdout = sys.stdout
+    if output_file:
+        f = open(output_file, "w")
+        sys.stdout = f
+
+    try:
+        print(f"\n=== Printing details for {num_scenarios} scenarios ===")
+
+        with open(file_path, "r") as f:
+            for i, line in enumerate(f):
+                if i >= num_scenarios:
+                    break
+
+                try:
+                    scenario = parse_line(line)
+                    print(f"\nScenario {i+1}:")
+                    print("-" * 50)
+
+                    # Print question
+                    print("Question:", scenario.get("decision_prompt", "N/A"))
+
+                    # Print correct answer and model's decision
+                    print("\nCorrect Answer:", scenario.get("correct_label", "N/A"))
+                    decision_output = scenario.get("decision_output", "")
+                    # Extract only the choice part (e.g., "E)" from "E) friend's house")
+                    if ")" in decision_output:
+                        choice = decision_output.split(")", 1)[0] + ")"
+                        print("Model's Decision:", choice.strip())
+                    else:
+                        print("Model's Decision:", decision_output)
+
+                    # Print explanations and their scores
+                    if "explanation_attributions" in scenario and "decision_attributions" in scenario:
+                        decision_attr = scenario["decision_attributions"]
+                        explanation_attrs = scenario["explanation_attributions"]
+
+                        # Calculate scores for all explanations first
+                        explanation_scores = []
+                        for j, expl_attr in enumerate(explanation_attrs):
+                            spearman_score = calculate_spearman_correlation(decision_attr, expl_attr)
+                            cosine_score = calculate_cosine_similarity(decision_attr, expl_attr)
+
+                            explanation_text = (
+                                scenario.get("explanation_outputs", ["N/A"])[j]
+                                if "explanation_outputs" in scenario
+                                else scenario.get("explanation", "N/A")
+                            )
+
+                            explanation_scores.append(
+                                {
+                                    "index": j,
+                                    "text": explanation_text,
+                                    "spearman": spearman_score,
+                                    "cosine": cosine_score,
+                                }
+                            )
+
+                        # Sort explanations by Spearman correlation score
+                        explanation_scores.sort(
+                            key=lambda x: x["spearman"] if x["spearman"] is not None else float("-inf"), reverse=True
+                        )
+
+                        print("\nExplanations and Scores (sorted by Spearman correlation):")
+                        for j, score_info in enumerate(explanation_scores):
+                            print(f"\nExplanation {j+1}:")
+                            print(f"Text: {score_info['text']}")
+                            print(
+                                f"Spearman Correlation: {score_info['spearman']:.4f}"
+                                if score_info["spearman"] is not None
+                                else "Spearman Correlation: N/A"
+                            )
+                            print(
+                                f"Cosine Similarity: {score_info['cosine']:.4f}"
+                                if score_info["cosine"] is not None
+                                else "Cosine Similarity: N/A"
+                            )
+
+                    print("\n" + "=" * 50)
+
+                except Exception as e:
+                    print(f"Error processing scenario {i+1}: {e}")
+                    continue
+    finally:
+        # Restore stdout and close file if it was opened
+        if output_file:
+            sys.stdout = original_stdout
+            f.close()
+
+
 if __name__ == "__main__":
     # import argparse
 
@@ -231,6 +337,12 @@ if __name__ == "__main__":
     # parser.add_argument("file_path", type=str, help="Path to the dataset file (JSONL or Python dict format)")
     # args = parser.parse_args()
 
-    file_path = "data/collection_data/arc_easy/meta-llama_Llama-3.2-3B-Instruct/arc_easy_20250404_115258_LIG_llama3.2/arc_easy_20250404_115258_LIG_llama3.2.jsonl"
+    file_path = "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5_fixed.jsonl"
+
+    # Print overall metrics
     metrics = analyze_dataset(file_path)
     print_metrics(metrics)
+
+    # Print detailed scenario information to console and file
+    print_scenario_details(file_path, num_scenarios=20)  # Print to console
+    print_scenario_details(file_path, num_scenarios=20, output_file="outputs/scenario_details.txt")  # Print to file
