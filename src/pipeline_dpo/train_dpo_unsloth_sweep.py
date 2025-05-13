@@ -167,8 +167,8 @@ def train_dpo_with_config(
             eval_reward_margins = metrics.get("eval_rewards/margins", 0)
 
             # Compute combined metric with fixed weights
-            # combined_metric = 0.5 * eval_reward_chosen + 0.5 * eval_reward_margins
-            eval_combined_metric = eval_reward_margins
+            eval_combined_metric = 0.5 * eval_reward_chosen + 0.5 * eval_reward_margins
+            # eval_combined_metric = eval_reward_margins
 
             # Store the combined metric in the metrics with the same format as other metrics in Transformers
             metrics["eval_combined_metric"] = eval_combined_metric
@@ -221,17 +221,33 @@ def run_sweep(
         "method": "bayes",  # Bayesian optimization
         "metric": {"name": "eval/combined_metric", "goal": "maximize"},  # Keep the eval/ prefix for wandb
         "parameters": {
-            "learning_rate": {"min": 8e-7, "max": 5e-6, "distribution": "log_uniform_values"},
-            "beta": {"min": 3, "max": 7, "distribution": "uniform"},
+            "learning_rate": {"min": 1e-7, "max": 1e-5, "distribution": "log_uniform_values"},
+            "beta": {"min": 3, "max": 10, "distribution": "uniform"},
             "per_device_train_batch_size": {"values": [8, 16]},  # Reduced from 32
             "gradient_accumulation_steps": {"values": [8, 16]},  # Increased from 4
             "warmup_ratio": {"min": 0.1, "max": 0.2, "distribution": "uniform"},
             "weight_decay": {"min": 0.01, "max": 0.05, "distribution": "uniform"},
             "num_train_epochs": {"values": [10]},
-            "lr_scheduler_type": {"values": ["linear"]},
+            "lr_scheduler_type": {"values": ["linear", "cosine"]},
             # "diff_threshold_train": {"min": 0, "max": 0.2, "distribution": "uniform"},
         },
     }
+
+    # sweep_config = {
+    #     "method": "bayes",  # Bayesian optimization
+    #     "metric": {"name": "eval/combined_metric", "goal": "maximize"},  # Keep the eval/ prefix for wandb
+    #     "parameters": {
+    #         "learning_rate": {"min": 8e-7, "max": 5e-6, "distribution": "log_uniform_values"},
+    #         "beta": {"min": 3, "max": 7, "distribution": "uniform"},
+    #         "per_device_train_batch_size": {"values": [8, 16]},  # Reduced from 32
+    #         "gradient_accumulation_steps": {"values": [8, 16]},  # Increased from 4
+    #         "warmup_ratio": {"min": 0.1, "max": 0.2, "distribution": "uniform"},
+    #         "weight_decay": {"min": 0.01, "max": 0.05, "distribution": "uniform"},
+    #         "num_train_epochs": {"values": [10]},
+    #         "lr_scheduler_type": {"values": ["linear"]},
+    #         # "diff_threshold_train": {"min": 0, "max": 0.2, "distribution": "uniform"},
+    #     },
+    # }
     # Create a unique sweep project name that includes model, dataset and similarity metric
     model_short_name = model_id.split("/")[-1] if "/" in model_id else model_id  # Extract just the model name
     sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}_sweep"

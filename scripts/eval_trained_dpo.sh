@@ -5,13 +5,13 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=2
 
 # Default paths - adjust these as needed
 # MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250421_121737_lr2.79e-06_beta6.03/best_model"
-MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250508_224902_lr4.21e-06_beta5.13/checkpoint-720"
-DATASET_PATH="data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/test_1089.jsonl"
-OUTPUT_DIR=""  # Initialize OUTPUT_DIR as empty string
+MODEL_PATH="models/ecqa/Qwen2.5-7B-Instruct/ecqa_250508_160207_lr2.25e-06_beta6.07/best_model"
+DATASET_PATH="data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/test_1089.jsonl"
+OUTPUT_DIR=""
 
 
 # Better detection of model ID vs local path

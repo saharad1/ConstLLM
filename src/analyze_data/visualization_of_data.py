@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from src.analyze_data.analysis_utils import compute_explanation_ranks
+
 
 def analyze_metric_differences(jsonl_file, metric_type="cosine", num_bins=8, dataset_name="", output_dir=None):
     """
@@ -147,23 +149,12 @@ def analyze_metric_differences(jsonl_file, metric_type="cosine", num_bins=8, dat
 def plot_ranked_kde(jsonl_file, metric_type="cosine", dataset_name="", output_dir=None):
     """
     Plot KDEs of explanation scores by rank for each scenario in the dataset.
-
-    Parameters:
-    -----------
-    jsonl_file : str
-        Path to the JSONL file containing scenario data
-    metric_type : str, optional
-        Type of metric to analyze ('cosine' or 'spearman', default: 'cosine')
-    dataset_name : str, optional
-        Name of the dataset for the plot title
-    output_dir : str, optional
-        Directory to save the output figure (default: same directory as input)
     """
     # Load data from JSONL file
     data = []
     with open(jsonl_file, "r", encoding="utf-8") as file:
         for line in file:
-            if line.strip():  # Skip empty lines
+            if line.strip():
                 try:
                     scenario_data = json.loads(line)
                     data.append(scenario_data)
@@ -172,25 +163,13 @@ def plot_ranked_kde(jsonl_file, metric_type="cosine", dataset_name="", output_di
 
     print(f"Parsed {len(data)} scenario objects for ranked KDE")
 
-    # Extract scores by rank robustly
+    # Use compute_explanation_ranks to extract and sort scores for each scenario
     rank_data = {f"Rank {i+1}": [] for i in range(5)}
-    score_key = f"{metric_type}_scores"
-
     for scenario in data:
-        # Try to extract the list of scores for this metric
-        scores = scenario.get(score_key, None)
-        if scores is None:
-            # Try to extract from explanation details if present
-            explanation_details = scenario.get("explanation_details", [])
-            scores = []
-            for detail in explanation_details:
-                score = detail.get(f"{metric_type}_score", None)
-                if score is not None:
-                    scores.append(score)
-        # Only use if we have 5 scores
-        if isinstance(scores, list) and len(scores) == 5:
-            for i, score in enumerate(scores):
-                rank_data[f"Rank {i+1}"].append(score)
+        ranked_explanations = compute_explanation_ranks(scenario, metric_type=metric_type)
+        if len(ranked_explanations) == 5:
+            for i, score_info in enumerate(ranked_explanations):
+                rank_data[f"Rank {i+1}"].append(score_info[metric_type])
 
     # Print how many scores per rank for debugging
     print("Rank data counts:")
@@ -202,6 +181,7 @@ def plot_ranked_kde(jsonl_file, metric_type="cosine", dataset_name="", output_di
 
     # Plot
     plt.figure(figsize=(10, 6))
+    # plt.xlim(0, 1)  # or (-1, 1) for Spearman
     for rank_label, scores in rank_data.items():
         if scores:
             sns.kdeplot(
@@ -210,12 +190,13 @@ def plot_ranked_kde(jsonl_file, metric_type="cosine", dataset_name="", output_di
                 fill=True,
                 common_norm=False,
                 color=rank_colors[rank_label],
-                alpha=0.4,
+                alpha=0.3,
                 linewidth=2,
+                bw_adjust=1,
             )
 
     metric_name = "Cosine Similarity" if metric_type == "cosine" else "Spearman Correlation"
-    plt.title(f"Ranked KDEs of Self-Consistency Scores (Manual)")
+    plt.title(f"{dataset_name}: Distribution of {metric_name} Scores by Explanation Rank")
     plt.xlabel(f"{metric_name}")
     plt.ylabel("Density")
     plt.legend(title="Explanation Rank", loc="best")
@@ -238,13 +219,14 @@ if __name__ == "__main__":
     )
 
     dataset_name = "ECQA-LIME"
-    # Analyze the JSONL file with cosine similarity
-    results_cosine = analyze_metric_differences(
-        str(file_path), metric_type="cosine", num_bins=50, dataset_name=dataset_name, output_dir=None
-    )
-    # Analyze the JSONL file with Spearman correlation
-    results_spearman = analyze_metric_differences(
-        str(file_path), metric_type="spearman", num_bins=50, dataset_name=dataset_name, output_dir=None
-    )
+    # # Analyze the JSONL file with cosine similarity
+    # results_cosine = analyze_metric_differences(
+    #     str(file_path), metric_type="cosine", num_bins=50, dataset_name=dataset_name, output_dir=None
+    # )
+    # # Analyze the JSONL file with Spearman correlation
+    # results_spearman = analyze_metric_differences(
+    #     str(file_path), metric_type="spearman", num_bins=50, dataset_name=dataset_name, output_dir=None
+    # )
 
-    # plot_ranked_kde(str(file_path), metric_type="spearman", dataset_name=dataset_name, output_dir=None)
+    plot_ranked_kde(str(file_path), metric_type="spearman", dataset_name=dataset_name, output_dir=None)
+    plot_ranked_kde(str(file_path), metric_type="cosine", dataset_name=dataset_name, output_dir=None)

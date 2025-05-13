@@ -1,12 +1,6 @@
 import ast
 import json
-from pathlib import Path
-from typing import Any, Dict, List
-
-import matplotlib.pyplot as plt
-import numpy as np
-import seaborn as sns
-from matplotlib.colors import LinearSegmentedColormap
+from typing import Any, Dict
 
 from src.collect_data.comp_similarity_scores import (
     calculate_cosine_similarity,
@@ -70,3 +64,36 @@ def extract_choice(output: str) -> str:
     if output:
         return output[0]
     return ""
+
+
+def compute_explanation_ranks(scenario, metric_type="spearman"):
+    """
+    Given a scenario dict, compute and return a sorted list of explanation scores
+    (best to worst by the specified metric_type: 'spearman' or 'cosine').
+    """
+    decision_attr = scenario.get("decision_attributions", None)
+    explanation_attrs = scenario.get("explanation_attributions", [])
+    explanation_texts = scenario.get("explanation_outputs", [])
+
+    if decision_attr is None or not explanation_attrs:
+        return []
+
+    explanation_scores = []
+    for j, expl_attr in enumerate(explanation_attrs):
+        spearman_score = calculate_spearman_correlation(decision_attr, expl_attr)
+        cosine_score = calculate_cosine_similarity(decision_attr, expl_attr)
+        explanation_text = explanation_texts[j] if explanation_texts and j < len(explanation_texts) else "N/A"
+        explanation_scores.append(
+            {
+                "index": j,
+                "text": explanation_text,
+                "spearman": spearman_score,
+                "cosine": cosine_score,
+            }
+        )
+    # Sort explanations by the chosen metric
+    explanation_scores.sort(
+        key=lambda x: x[metric_type] if x[metric_type] is not None else float("-inf"),
+        reverse=True,
+    )
+    return explanation_scores

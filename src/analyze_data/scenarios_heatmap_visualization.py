@@ -89,12 +89,25 @@ def is_qwen_model(file_path: str) -> bool:
     return "qwen" in file_path.lower()
 
 
+def is_llama_model(file_path: str) -> bool:
+    """
+    Check if the dataset is from a Llama model based on the file path.
+
+    Args:
+        file_path: Path to the dataset file
+
+    Returns:
+        True if the dataset is from a Llama model, False otherwise
+    """
+    return "llama" in file_path.lower()
+
+
 def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_dir: str = "outputs/heatmaps") -> None:
     """
     Create visualizations of feature attributions by coloring the words in the text based on their attribution scores.
 
     Process:
-    1. First remove system prompt tokens (if Qwen model)
+    1. First remove system prompt tokens (if Qwen or Llama model)
     2. Then collect valid scores from remaining tokens
     3. Calculate normalization parameters (percentiles) on valid scores
     4. Finally create visualization with normalized colors
@@ -107,9 +120,19 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
     # Create output directory if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    # Check if this is a Qwen model dataset
+    # Check if this is a Qwen or Llama model dataset
     is_qwen = is_qwen_model(file_path)
+    is_llama = is_llama_model(file_path)
     print(f"Dataset is from Qwen model: {is_qwen}")
+    print(f"Dataset is from Llama model: {is_llama}")
+
+    # Decide how many tokens to skip
+    if is_qwen:
+        skip_tokens = 17
+    elif is_llama:
+        skip_tokens = 19
+    else:
+        skip_tokens = 0
 
     # Custom colormap for better visualization - using brighter colors
     cmap = LinearSegmentedColormap.from_list(
@@ -154,14 +177,14 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                                     worst_spearman = spearman_score
                                     worst_explanation = expl_text
 
-                    # Step 1: First pass - collect valid scores (excluding system prompt tokens for Qwen)
+                    # Step 1: First pass - collect valid scores (excluding system prompt tokens for Qwen/Llama)
                     valid_scores = []
                     print(f"\nScenario {i+1} - Raw attribution values:")
                     for token_idx, (token, score) in enumerate(attributions):
                         try:
                             score = float(score)
-                            # Only skip first 17 tokens if this is a Qwen model
-                            if not is_qwen or token_idx >= 17:
+                            # Skip system prompt tokens for Qwen/Llama
+                            if token_idx >= skip_tokens:
                                 valid_scores.append(score)
                                 print(f"Token: {token}, Score: {score:.4f}")
                         except (ValueError, TypeError):
@@ -255,8 +278,8 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                     # Step 3: Create visualization using normalized scores
                     for token_idx, (token, score) in enumerate(attributions):
                         try:
-                            # Only skip first 17 tokens if this is a Qwen model
-                            if is_qwen and token_idx < 17:
+                            # Skip system prompt tokens for Qwen/Llama
+                            if token_idx < skip_tokens:
                                 continue
 
                             score = float(score)
@@ -338,21 +361,8 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
 
 
 if __name__ == "__main__":
-    # import argparse
 
-    # parser = argparse.ArgumentParser(description="Analyze a dataset file and compute metrics")
-    # parser.add_argument("file_path", type=str, help="Path to the dataset file (JSONL or Python dict format)")
-    # args = parser.parse_args()
-
-    file_path = "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5_fixed.jsonl"
-
-    # Print overall metrics
-    # metrics = analyze_dataset(file_path)
-    # print_metrics(metrics)
-
-    # # Print detailed scenario information to console and file
-    # print_scenario_details(file_path, num_scenarios=20)  # Print to console
-    # print_scenario_details(file_path, num_scenarios=20, output_file="outputs/scenario_details.txt")  # Print to file
+    file_path = "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1_fixed.jsonl"
 
     # Create heatmaps for feature attributions
     create_attribution_heatmap(file_path, num_scenarios=10)
