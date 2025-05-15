@@ -167,8 +167,8 @@ def train_dpo_with_config(
             eval_reward_margins = metrics.get("eval_rewards/margins", 0)
 
             # Compute combined metric with fixed weights
-            eval_combined_metric = 0.5 * eval_reward_chosen + 0.5 * eval_reward_margins
-            # eval_combined_metric = eval_reward_margins
+            # eval_combined_metric = 0.5 * eval_reward_chosen + 0.5 * eval_reward_margins
+            eval_combined_metric = eval_reward_margins
 
             # Store the combined metric in the metrics with the same format as other metrics in Transformers
             metrics["eval_combined_metric"] = eval_combined_metric

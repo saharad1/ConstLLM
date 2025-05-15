@@ -225,7 +225,7 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                                 width: fit-content;
                                 min-width: 300px;
                                 max-width: 100%;
-                                height: 30px;
+                                height: 20px;
                                 background: linear-gradient(to right, #66b3ff, #b3e0ff, #ffffff, #ffd3b6, #ffa07a);
                                 position: relative;
                                 border: 1px solid #ccc;
@@ -265,7 +265,7 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                             }
                             .spearman-score {
                                 font-weight: bold;
-                                color: #0066cc;
+                                color: green;
                             }
                         </style>
                     </head>

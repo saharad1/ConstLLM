@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from src.collect_data.comp_similarity_scores import (
     calculate_cosine_similarity,
+    calculate_lma,
     calculate_spearman_correlation,
 )
 
@@ -82,6 +83,7 @@ def compute_explanation_ranks(scenario, metric_type="spearman"):
     for j, expl_attr in enumerate(explanation_attrs):
         spearman_score = calculate_spearman_correlation(decision_attr, expl_attr)
         cosine_score = calculate_cosine_similarity(decision_attr, expl_attr)
+        lma_score = calculate_lma(decision_attr, expl_attr)
         explanation_text = explanation_texts[j] if explanation_texts and j < len(explanation_texts) else "N/A"
         explanation_scores.append(
             {
@@ -89,6 +91,7 @@ def compute_explanation_ranks(scenario, metric_type="spearman"):
                 "text": explanation_text,
                 "spearman": spearman_score,
                 "cosine": cosine_score,
+                "lma": lma_score,
             }
         )
     # Sort explanations by the chosen metric

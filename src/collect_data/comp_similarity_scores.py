@@ -20,6 +20,13 @@ def calculate_cosine_similarity(
     return _calculate_cosine_similarity(decision_attributions, explanation_attributions)["cosine_similarity"]
 
 
+def calculate_lma(
+    decision_attributions: List[Tuple[str, float]],
+    explanation_attributions: List[Tuple[str, float]],
+):
+    return _calculate_lma(decision_attributions, explanation_attributions)["lma_score"]
+
+
 def compute_kl_divergence(
     decision_attributions: List[Tuple[str, float]],
     explanation_attributions: List[Tuple[str, float]],
@@ -150,3 +157,47 @@ def _calculate_kl_divergence(
         return {"kl_divergence": kl_div}
 
     return {"kl_divergence": None}
+
+
+# Local Monotonicity Alignment (LMA) metric
+def _calculate_lma(
+    decision_attributions: List[Tuple[str, float]],
+    explanation_attributions: List[Tuple[str, float]],
+) -> Union[float, None]:
+    """
+    Calculate Local Monotonicity Alignment (LMA) between decision and explanation attributions.
+    LMA is the proportion of token pairs whose relative importance ordering is preserved.
+
+    Args:
+        decision_attributions: List of (token, score) tuples for decision.
+        explanation_attributions: List of (token, score) tuples for explanation.
+
+    Returns:
+        A float between 0 and 1 indicating the proportion of consistent pairwise orderings,
+        or None if not enough aligned tokens exist.
+    """
+    aligned_decision_scores, aligned_explanation_scores = _align_tokens(decision_attributions, explanation_attributions)
+    if len(aligned_decision_scores) == len(aligned_explanation_scores):
+        n = len(aligned_decision_scores)
+        if n < 2:
+            return None  # Need at least 2 tokens to form a pair
+
+        total_pairs = 0
+        consistent_pairs = 0
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                d_diff = aligned_decision_scores[i] - aligned_decision_scores[j]
+                e_diff = aligned_explanation_scores[i] - aligned_explanation_scores[j]
+
+                if d_diff == 0 and e_diff == 0:
+                    consistent_pairs += 1
+                elif d_diff * e_diff > 0:
+                    consistent_pairs += 1
+
+                total_pairs += 1
+
+        lma = consistent_pairs / total_pairs if total_pairs > 0 else None
+        return {"lma_score": lma}
+    else:
+        return {"lma_score": None}

@@ -195,7 +195,12 @@ def plot_ranked_kde(jsonl_file, metric_type="cosine", dataset_name="", output_di
                 bw_adjust=1,
             )
 
-    metric_name = "Cosine Similarity" if metric_type == "cosine" else "Spearman Correlation"
+    if metric_type == "cosine":
+        metric_name = "Cosine Similarity"
+    elif metric_type == "spearman":
+        metric_name = "Spearman Correlation"
+    else:
+        metric_name = "Local Monotonicity Alignment"
     plt.title(f"{dataset_name}: Distribution of {metric_name} Scores by Explanation Rank")
     plt.xlabel(f"{metric_name}")
     plt.ylabel("Density")
@@ -230,3 +235,4 @@ if __name__ == "__main__":
 
     plot_ranked_kde(str(file_path), metric_type="spearman", dataset_name=dataset_name, output_dir=None)
     plot_ranked_kde(str(file_path), metric_type="cosine", dataset_name=dataset_name, output_dir=None)
+    plot_ranked_kde(str(file_path), metric_type="lma", dataset_name=dataset_name, output_dir=None)
