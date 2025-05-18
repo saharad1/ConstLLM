@@ -1,6 +1,5 @@
 import ast
 import json
-import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -103,31 +102,6 @@ def is_llama_model(file_path: str) -> bool:
     return "llama" in file_path.lower()
 
 
-def extract_model_version(part: str) -> str:
-    """
-    Extract the model version from a path part.
-
-    Args:
-        part: A part of the file path
-
-    Returns:
-        The extracted model version or the original part if no version is found
-    """
-    part_lower = part.lower()
-    print(f"Checking part for model version: {part}")  # Debug print
-
-    # Try to match Llama versions - handle both Meta-Llama and direct Llama formats
-    version_match = re.search(r"(?:Meta-)?[Ll]lama[-\s]?(\d+\.\d+)", part)
-    if version_match:
-        model_version = f"llama{version_match.group(1)}"
-        print(f"Found model version: {model_version}")  # Debug print
-        return model_version
-
-    # If no version found, return the original part
-    print(f"No version found in part: {part}")  # Debug print
-    return part
-
-
 def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_dir: str = "outputs/heatmaps") -> None:
     """
     Create visualizations of feature attributions by coloring the words in the text based on their attribution scores.
@@ -143,8 +117,6 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
         num_scenarios: Number of scenarios to visualize (default: 20)
         output_dir: Directory to save the visualization images (default: 'outputs/heatmaps')
     """
-    print(f"\nProcessing file: {file_path}")  # Debug print
-
     # Extract dataset name from file path
     dataset_name = None
     if "ecqa" in file_path.lower():
@@ -162,16 +134,18 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
     if dataset_name is None:
         dataset_name = "unknown_dataset"
 
-    print(f"Detected dataset name: {dataset_name}")  # Debug print
-
     # Extract model name from file path
     model_name = None
     path_parts = file_path.split("/")
-    print("\nChecking path parts for model name:")  # Debug print
     for part in path_parts:
-        print(f"  Checking part: {part}")  # Debug print
         if "llama" in part.lower():
-            model_name = extract_model_version(part)
+            # Extract Llama version
+            if "llama-3.1" in part.lower() or "llama3.1" in part.lower():
+                model_name = "llama3.1"
+            elif "llama-3.2" in part.lower() or "llama3.2" in part.lower():
+                model_name = "llama3.2"
+            else:
+                model_name = part
             break
         elif "qwen" in part.lower():
             model_name = part
@@ -180,11 +154,8 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
     if model_name is None:
         model_name = "unknown_model"
 
-    print(f"\nFinal model name: {model_name}")  # Debug print
-
     # Create dataset and model-specific output directory
     model_output_dir = f"{output_dir}/{dataset_name}/{model_name}"
-    print(f"Creating output directory: {model_output_dir}")  # Debug print
     Path(model_output_dir).mkdir(parents=True, exist_ok=True)
 
     # Check if this is a Qwen or Llama model dataset
@@ -505,7 +476,7 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
 
 if __name__ == "__main__":
 
-    file_path = "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1.jsonl"
+    file_path = "data/collection_data/ecqa/unsloth_Llama-3.2-3B-Instruct/ecqa_20250415_184138_LIME_llama3.2/ecqa_20250415_184138_LIME_llama3.2.jsonl"
 
     # Create heatmaps for feature attributions
     create_attribution_heatmap(file_path, num_scenarios=300)

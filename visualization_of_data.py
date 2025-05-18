@@ -92,15 +92,15 @@ def analyze_metric_differences(jsonl_file, metric_type="cosine", num_bins=8, dat
 
     # Add labels and title
     metric_name = "Cosine Similarity" if metric_type == "cosine" else "Spearman Correlation"
-    plt.xlabel(f"Difference between Best and Worst {metric_name} Scores ($\\Delta \\rho$)")
-    plt.ylabel("Number of Scenarios")
-    plt.title(f"{dataset_name}: Distribution of Differences Between Best and Worst {metric_name} Scores")
+    plt.xlabel(f"Difference between Best and Worst {metric_name} Scores ($\\Delta \\rho$)", fontsize=16)
+    plt.ylabel("Number of Scenarios", fontsize=16)
+    plt.title(f"{dataset_name}: Distribution of Differences Between Best and Worst {metric_name} Scores", fontsize=18)
     plt.grid(axis="y", alpha=0.3)
 
     # Add vertical lines for mean and median with refined styles
     plt.axvline(x=mean_diff, color="#0072B2", linestyle="--", label=f"Mean = {mean_diff:.3f}")
     plt.axvline(x=median_diff, color="green", linestyle="--", label=f"Median = {median_diff:.3f}")
-    plt.legend()
+    plt.legend(fontsize=14)
 
     # Show counts above bars
     for patch in ax.patches:
@@ -215,10 +215,10 @@ def plot_ranked_kde(jsonl_file, metric_type="cosine", dataset_name="", output_di
             )
 
     metric_name = "Cosine Similarity" if metric_type == "cosine" else "Spearman Correlation"
-    plt.title(f"Ranked KDEs of Self-Consistency Scores (Manual)")
-    plt.xlabel(f"{metric_name}")
-    plt.ylabel("Density")
-    plt.legend(title="Explanation Rank", loc="best")
+    # plt.title(f"Ranked KDEs of Self-Consistency Scores (Manual)", fontsize=18)
+    plt.xlabel(f"{metric_name}", fontsize=18)
+    plt.ylabel("Density", fontsize=18)
+    plt.legend(title="Explanation Rank", loc="best", fontsize=16, title_fontsize=18)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -239,12 +239,12 @@ if __name__ == "__main__":
 
     dataset_name = "ECQA-LIME"
     # Analyze the JSONL file with cosine similarity
-    results_cosine = analyze_metric_differences(
-        str(file_path), metric_type="cosine", num_bins=50, dataset_name=dataset_name, output_dir=None
-    )
-    # Analyze the JSONL file with Spearman correlation
-    results_spearman = analyze_metric_differences(
-        str(file_path), metric_type="spearman", num_bins=50, dataset_name=dataset_name, output_dir=None
-    )
+    # results_cosine = analyze_metric_differences(
+    #     str(file_path), metric_type="cosine", num_bins=50, dataset_name=dataset_name, output_dir=None
+    # )
+    # # Analyze the JSONL file with Spearman correlation
+    # results_spearman = analyze_metric_differences(
+    #     str(file_path), metric_type="spearman", num_bins=50, dataset_name=dataset_name, output_dir=None
+    # )
 
-    # plot_ranked_kde(str(file_path), metric_type="spearman", dataset_name=dataset_name, output_dir=None)
+    plot_ranked_kde(str(file_path), metric_type="spearman", dataset_name=dataset_name, output_dir=None)

@@ -13,7 +13,7 @@ set -e
 
 # GPU ID to use
 # Set the GPU to use
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=1
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
@@ -37,7 +37,7 @@ export CUDA_VISIBLE_DEVICES=2
 # arc_easy
 # arc_challenge
 
-MODEL_ID="unsloth/Llama-3.2-3B-Instruct"
+MODEL_ID="unsloth/Meta-Llama-3.1-8B-Instruct"
 DATASET="codah"
 ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=5

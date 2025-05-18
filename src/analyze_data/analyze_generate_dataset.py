@@ -178,24 +178,24 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
                 "median": np.median(dataset_cosine_worst) if dataset_cosine_worst else 0,
                 "min": min(dataset_cosine_worst) if dataset_cosine_worst else 0,
                 "max": max(dataset_cosine_worst) if dataset_cosine_worst else 0,
+                "std": np.std(dataset_cosine_worst) if dataset_cosine_worst else 0,
+                "sem": np.std(dataset_cosine_worst) / np.sqrt(len(dataset_cosine_worst)) if dataset_cosine_worst else 0,
             },
-            # "median": {
-            #     "mean": np.mean(dataset_cosine_median) if dataset_cosine_median else 0,
-            #     "median": np.median(dataset_cosine_median) if dataset_cosine_median else 0,
-            #     "min": min(dataset_cosine_median) if dataset_cosine_median else 0,
-            #     "max": max(dataset_cosine_median) if dataset_cosine_median else 0,
-            # },
             "best": {
                 "mean": np.mean(dataset_cosine_best) if dataset_cosine_best else 0,
                 "median": np.median(dataset_cosine_best) if dataset_cosine_best else 0,
                 "min": min(dataset_cosine_best) if dataset_cosine_best else 0,
                 "max": max(dataset_cosine_best) if dataset_cosine_best else 0,
+                "std": np.std(dataset_cosine_best) if dataset_cosine_best else 0,
+                "sem": np.std(dataset_cosine_best) / np.sqrt(len(dataset_cosine_best)) if dataset_cosine_best else 0,
             },
             "mean": {
                 "mean": np.mean(dataset_cosine_mean) if dataset_cosine_mean else 0,
                 "median": np.median(dataset_cosine_mean) if dataset_cosine_mean else 0,
                 "min": min(dataset_cosine_mean) if dataset_cosine_mean else 0,
                 "max": max(dataset_cosine_mean) if dataset_cosine_mean else 0,
+                "std": np.std(dataset_cosine_mean) if dataset_cosine_mean else 0,
+                "sem": np.std(dataset_cosine_mean) / np.sqrt(len(dataset_cosine_mean)) if dataset_cosine_mean else 0,
             },
         },
         # Spearman correlation statistics
@@ -205,24 +205,44 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
                 "median": np.median(dataset_spearman_worst) if dataset_spearman_worst else 0,
                 "min": min(dataset_spearman_worst) if dataset_spearman_worst else 0,
                 "max": max(dataset_spearman_worst) if dataset_spearman_worst else 0,
+                "std": np.std(dataset_spearman_worst) if dataset_spearman_worst else 0,
+                "sem": (
+                    np.std(dataset_spearman_worst) / np.sqrt(len(dataset_spearman_worst))
+                    if dataset_spearman_worst
+                    else 0
+                ),
             },
             "median": {
                 "mean": np.mean(dataset_spearman_median) if dataset_spearman_median else 0,
                 "median": np.median(dataset_spearman_median) if dataset_spearman_median else 0,
                 "min": min(dataset_spearman_median) if dataset_spearman_median else 0,
                 "max": max(dataset_spearman_median) if dataset_spearman_median else 0,
+                "std": np.std(dataset_spearman_median) if dataset_spearman_median else 0,
+                "sem": (
+                    np.std(dataset_spearman_median) / np.sqrt(len(dataset_spearman_median))
+                    if dataset_spearman_median
+                    else 0
+                ),
             },
             "best": {
                 "mean": np.mean(dataset_spearman_best) if dataset_spearman_best else 0,
                 "median": np.median(dataset_spearman_best) if dataset_spearman_best else 0,
                 "min": min(dataset_spearman_best) if dataset_spearman_best else 0,
                 "max": max(dataset_spearman_best) if dataset_spearman_best else 0,
+                "std": np.std(dataset_spearman_best) if dataset_spearman_best else 0,
+                "sem": (
+                    np.std(dataset_spearman_best) / np.sqrt(len(dataset_spearman_best)) if dataset_spearman_best else 0
+                ),
             },
             "mean": {
                 "mean": np.mean(dataset_spearman_mean) if dataset_spearman_mean else 0,
                 "median": np.median(dataset_spearman_mean) if dataset_spearman_mean else 0,
                 "min": min(dataset_spearman_mean) if dataset_spearman_mean else 0,
                 "max": max(dataset_spearman_mean) if dataset_spearman_mean else 0,
+                "std": np.std(dataset_spearman_mean) if dataset_spearman_mean else 0,
+                "sem": (
+                    np.std(dataset_spearman_mean) / np.sqrt(len(dataset_spearman_mean)) if dataset_spearman_mean else 0
+                ),
             },
         },
         "lma": {
@@ -231,56 +251,96 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
                 "median": np.median(dataset_lma_worst) if dataset_lma_worst else 0,
                 "min": min(dataset_lma_worst) if dataset_lma_worst else 0,
                 "max": max(dataset_lma_worst) if dataset_lma_worst else 0,
+                "std": np.std(dataset_lma_worst) if dataset_lma_worst else 0,
+                "sem": np.std(dataset_lma_worst) / np.sqrt(len(dataset_lma_worst)) if dataset_lma_worst else 0,
             },
-            # "median": {
-            #     "mean": np.mean(dataset_lma_median) if dataset_lma_median else 0,
-            #     "median": np.median(dataset_lma_median) if dataset_lma_median else 0,
-            #     "min": min(dataset_lma_median) if dataset_lma_median else 0,
-            #     "max": max(dataset_lma_median) if dataset_lma_median else 0,
-            # },
             "best": {
                 "mean": np.mean(dataset_lma_best) if dataset_lma_best else 0,
                 "median": np.median(dataset_lma_best) if dataset_lma_best else 0,
                 "min": min(dataset_lma_best) if dataset_lma_best else 0,
                 "max": max(dataset_lma_best) if dataset_lma_best else 0,
+                "std": np.std(dataset_lma_best) if dataset_lma_best else 0,
+                "sem": np.std(dataset_lma_best) / np.sqrt(len(dataset_lma_best)) if dataset_lma_best else 0,
             },
             "mean": {
                 "mean": np.mean(dataset_lma_mean) if dataset_lma_mean else 0,
                 "median": np.median(dataset_lma_mean) if dataset_lma_mean else 0,
                 "min": min(dataset_lma_mean) if dataset_lma_mean else 0,
                 "max": max(dataset_lma_mean) if dataset_lma_mean else 0,
+                "std": np.std(dataset_lma_mean) if dataset_lma_mean else 0,
+                "sem": np.std(dataset_lma_mean) / np.sqrt(len(dataset_lma_mean)) if dataset_lma_mean else 0,
             },
         },
         # Add new metrics for correct/incorrect cases
         "cosine_right": {
             "worst_mean": np.mean(cosine_worst_right) if cosine_worst_right else 0,
+            "worst_std": np.std(cosine_worst_right) if cosine_worst_right else 0,
+            "worst_sem": np.std(cosine_worst_right) / np.sqrt(len(cosine_worst_right)) if cosine_worst_right else 0,
             "mean_mean": np.mean(cosine_mean_right) if cosine_mean_right else 0,
+            "mean_std": np.std(cosine_mean_right) if cosine_mean_right else 0,
+            "mean_sem": np.std(cosine_mean_right) / np.sqrt(len(cosine_mean_right)) if cosine_mean_right else 0,
             "best_mean": np.mean(cosine_best_right) if cosine_best_right else 0,
+            "best_std": np.std(cosine_best_right) if cosine_best_right else 0,
+            "best_sem": np.std(cosine_best_right) / np.sqrt(len(cosine_best_right)) if cosine_best_right else 0,
         },
         "cosine_wrong": {
             "worst_mean": np.mean(cosine_worst_wrong) if cosine_worst_wrong else 0,
+            "worst_std": np.std(cosine_worst_wrong) if cosine_worst_wrong else 0,
+            "worst_sem": np.std(cosine_worst_wrong) / np.sqrt(len(cosine_worst_wrong)) if cosine_worst_wrong else 0,
             "mean_mean": np.mean(cosine_mean_wrong) if cosine_mean_wrong else 0,
+            "mean_std": np.std(cosine_mean_wrong) if cosine_mean_wrong else 0,
+            "mean_sem": np.std(cosine_mean_wrong) / np.sqrt(len(cosine_mean_wrong)) if cosine_mean_wrong else 0,
             "best_mean": np.mean(cosine_best_wrong) if cosine_best_wrong else 0,
+            "best_std": np.std(cosine_best_wrong) if cosine_best_wrong else 0,
+            "best_sem": np.std(cosine_best_wrong) / np.sqrt(len(cosine_best_wrong)) if cosine_best_wrong else 0,
         },
         "spearman_right": {
             "worst_mean": np.mean(spearman_worst_right) if spearman_worst_right else 0,
+            "worst_std": np.std(spearman_worst_right) if spearman_worst_right else 0,
+            "worst_sem": (
+                np.std(spearman_worst_right) / np.sqrt(len(spearman_worst_right)) if spearman_worst_right else 0
+            ),
             "mean_mean": np.mean(spearman_mean_right) if spearman_mean_right else 0,
+            "mean_std": np.std(spearman_mean_right) if spearman_mean_right else 0,
+            "mean_sem": np.std(spearman_mean_right) / np.sqrt(len(spearman_mean_right)) if spearman_mean_right else 0,
             "best_mean": np.mean(spearman_best_right) if spearman_best_right else 0,
+            "best_std": np.std(spearman_best_right) if spearman_best_right else 0,
+            "best_sem": np.std(spearman_best_right) / np.sqrt(len(spearman_best_right)) if spearman_best_right else 0,
         },
         "spearman_wrong": {
             "worst_mean": np.mean(spearman_worst_wrong) if spearman_worst_wrong else 0,
+            "worst_std": np.std(spearman_worst_wrong) if spearman_worst_wrong else 0,
+            "worst_sem": (
+                np.std(spearman_worst_wrong) / np.sqrt(len(spearman_worst_wrong)) if spearman_worst_wrong else 0
+            ),
             "mean_mean": np.mean(spearman_mean_wrong) if spearman_mean_wrong else 0,
+            "mean_std": np.std(spearman_mean_wrong) if spearman_mean_wrong else 0,
+            "mean_sem": np.std(spearman_mean_wrong) / np.sqrt(len(spearman_mean_wrong)) if spearman_mean_wrong else 0,
             "best_mean": np.mean(spearman_best_wrong) if spearman_best_wrong else 0,
+            "best_std": np.std(spearman_best_wrong) if spearman_best_wrong else 0,
+            "best_sem": np.std(spearman_best_wrong) / np.sqrt(len(spearman_best_wrong)) if spearman_best_wrong else 0,
         },
         "lma_right": {
             "worst_mean": np.mean(lma_worst_right) if lma_worst_right else 0,
+            "worst_std": np.std(lma_worst_right) if lma_worst_right else 0,
+            "worst_sem": np.std(lma_worst_right) / np.sqrt(len(lma_worst_right)) if lma_worst_right else 0,
             "mean_mean": np.mean(lma_mean_right) if lma_mean_right else 0,
+            "mean_std": np.std(lma_mean_right) if lma_mean_right else 0,
+            "mean_sem": np.std(lma_mean_right) / np.sqrt(len(lma_mean_right)) if lma_mean_right else 0,
             "best_mean": np.mean(lma_best_right) if lma_best_right else 0,
+            "best_std": np.std(lma_best_right) if lma_best_right else 0,
+            "best_sem": np.std(lma_best_right) / np.sqrt(len(lma_best_right)) if lma_best_right else 0,
         },
         "lma_wrong": {
             "worst_mean": np.mean(lma_worst_wrong) if lma_worst_wrong else 0,
+            "worst_std": np.std(lma_worst_wrong) if lma_worst_wrong else 0,
+            "worst_sem": np.std(lma_worst_wrong) / np.sqrt(len(lma_worst_wrong)) if lma_worst_wrong else 0,
             "mean_mean": np.mean(lma_mean_wrong) if lma_mean_wrong else 0,
+            "mean_std": np.std(lma_mean_wrong) if lma_mean_wrong else 0,
+            "mean_sem": np.std(lma_mean_wrong) / np.sqrt(len(lma_mean_wrong)) if lma_mean_wrong else 0,
             "best_mean": np.mean(lma_best_wrong) if lma_best_wrong else 0,
+            "best_std": np.std(lma_best_wrong) if lma_best_wrong else 0,
+            "best_sem": np.std(lma_best_wrong) / np.sqrt(len(lma_best_wrong)) if lma_best_wrong else 0,
         },
     }
 
@@ -293,39 +353,53 @@ def print_metrics(metrics: Dict[str, Any]) -> None:
     print(f"Total scenarios analyzed: {metrics['total_scenarios']}")
     print(f"Accuracy: {metrics['accuracy']:.2%}")
 
-    print("\n=== Spearman Correlation Statistics ===")
-    for category in ["worst", "best", "mean"]:
-        print(f"\n{category.title()} values:")
-        stats = metrics["spearman"][category]
-        print(f"  Mean: {stats['mean']:.4f}")
-        print(f"  Median: {stats['median']:.4f}")
-        print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
-
     print("\n=== Cosine Similarity Statistics ===")
-    for category in ["worst", "best", "mean"]:
+    for category in ["worst", "mean", "best"]:
+        # for category in ["mean"]:
         print(f"\n{category.title()} values:")
         stats = metrics["cosine"][category]
-        print(f"  Mean: {stats['mean']:.4f}")
-        print(f"  Median: {stats['median']:.4f}")
-        print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+        print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
+        # print(f"  Median: {stats['median']:.4f}")
+        # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+        # print(f"  Std Dev: {stats['std']:.4f}")
 
-    print("\n=== LMA Statistics ===")
-    for category in ["worst", "best", "mean"]:
+    print("\n=== Spearman Correlation Statistics ===")
+    for category in ["worst", "mean", "best"]:
+        # for category in ["mean"]:
         print(f"\n{category.title()} values:")
-        stats = metrics["lma"][category]
-        print(f"  Mean: {stats['mean']:.4f}")
-        print(f"  Median: {stats['median']:.4f}")
-        print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+        stats = metrics["spearman"][category]
+        print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
+        # print(f"  Median: {stats['median']:.4f}")
+        # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+        # print(f"  Std Dev: {stats['std']:.4f}")
 
-    # Print correct/incorrect split metrics
-    for metric in ["cosine", "spearman", "lma"]:
-        print(f"\n=== {metric.title()} Means by Model Correctness ===")
-        for correctness in ["right", "wrong"]:
-            key = f"{metric}_{correctness}"
-            print(f"\nWhen model was {correctness}:")
-            print(f"  Mean of Worst: {metrics[key]['worst_mean']:.4f}")
-            print(f"  Mean of Mean: {metrics[key]['mean_mean']:.4f}")
-            print(f"  Mean of Best: {metrics[key]['best_mean']:.4f}")
+    # print("\n=== LMA Statistics ===")
+    # for category in ["worst", "best", "mean"]:
+    #     print(f"\n{category.title()} values:")
+    #     stats = metrics["lma"][category]
+    # print(f"  Mean ± SEM: {stats['mean']*100:.4f} ± {stats['sem']*100:.4f}")
+    #     print(f"  Median: {stats['median']:.4f}")
+    #     print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+    #     print(f"  Std Dev: {stats['std']:.4f}")
+
+    # # Print correct/incorrect split metrics
+    # for metric in ["cosine", "spearman", "lma"]:
+    #     print(f"\n=== {metric.title()} Means by Model Correctness ===")
+    #     for correctness in ["right", "wrong"]:
+    #         key = f"{metric}_{correctness}"
+    #         print(f"\nWhen model was {correctness}:")
+    #         print(f"  Mean of Worst: {metrics[key]['worst_mean']:.3f} ± {metrics[key]['worst_sem']:.3f}")
+    #         print(f"  Mean of Mean: {metrics[key]['mean_mean']:.3f} ± {metrics[key]['mean_sem']:.3f}")
+    #         print(f"  Mean of Best: {metrics[key]['best_mean']:.3f} ± {metrics[key]['best_sem']:.3f}")
+
+    # # Print mean differences
+    # print("\n=== Mean Differences ===")
+    # print(
+    #     f"Cosine mean difference (right - wrong): {metrics['cosine_right']['mean_mean'] - metrics['cosine_wrong']['mean_mean']:.3f}"
+    # )
+    # print(
+    #     f"Spearman mean difference (right - wrong): {metrics['spearman_right']['mean_mean'] - metrics['spearman_wrong']['mean_mean']:.3f}"
+    # )
 
 
 def print_scenario_details(file_path: str, num_scenarios: int = 20, output_file: str = None) -> None:
@@ -378,12 +452,12 @@ def print_scenario_details(file_path: str, num_scenarios: int = 20, output_file:
                         print(f"\nExplanation {j+1}:")
                         print(f"Text: {score_info['text']}")
                         print(
-                            f"Spearman Correlation: {score_info['spearman']:.4f}"
+                            f"Spearman Correlation: {score_info['spearman']:.3f}"
                             if score_info["spearman"] is not None
                             else "Spearman Correlation: N/A"
                         )
                         print(
-                            f"Cosine Similarity: {score_info['cosine']:.4f}"
+                            f"Cosine Similarity: {score_info['cosine']:.3f}"
                             if score_info["cosine"] is not None
                             else "Cosine Similarity: N/A"
                         )
@@ -402,7 +476,7 @@ def print_scenario_details(file_path: str, num_scenarios: int = 20, output_file:
 
 if __name__ == "__main__":
     # file_path = "data/collection_data/codah/unsloth_Llama-3.2-3B-Instruct/codah_20250506_085629_LIME_llama3.2/codah_20250506_085629_LIME_llama3.2.jsonl"
-    file_path = "data/collection_data/codah/unsloth_Llama-3.2-3B-Instruct/codah_20250506_085629_LIME_llama3.2/codah_20250506_085629_LIME_llama3.2.jsonl"
+    file_path = "data/eval_results/ecqa/huggingface/Llama-3.2-3B-Instruct/eval_250505_103954_test_1089_LIME/eval_250505_103954_test_1089_LIME_results.jsonl"
 
     # Print overall metrics
     metrics = analyze_dataset(file_path)
