@@ -286,75 +286,92 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                                 max-width: 900px;
                                 margin: 0;
                                 padding: 0;
+                                box-sizing: border-box;
                             }}
-                            .top-row {{
-                                margin-bottom: 10px;
-                            }}
-                            .model-decision-col {{
-                                border: 1px solid #eee;
-                                border-radius: 4px;
-                                padding: 6px;
+                            .decision-section {{
+                                width: 100%;
+                                border: 1px solid #ddd;
+                                border-radius: 8px;
+                                padding: 6px 15px;
                                 background: #fafbfc;
-                                margin-bottom: 4px;
+                                margin-bottom: 5px;
+                                box-sizing: border-box;
                             }}
-                            .model-decision-label {{
+                            .model-header {{
                                 font-weight: bold;
-                                margin-bottom: 2px;
+                                font-size: 16px;
+                                margin-bottom: 4px;
+                                color: #333;
+                                border-bottom: 2px solid #ddd;
+                                padding-bottom: 2px;
+                            }}
+                            .explanation-section {{
+                                width: 100%;
+                                padding: 6px 15px;
+                                background: #f8f9fa;
+                                border-radius: 8px;
+                                border: 1px solid #ddd;
+                                margin-bottom: 5px;
+                                box-sizing: border-box;
+                            }}
+                            .explanation-title {{
+                                font-weight: bold;
+                                margin-bottom: 4px;
                             }}
                             .spearman-score {{
                                 font-weight: bold;
                                 color: green;
                             }}
+                            .explanation-text {{
+                                margin-top: 4px;
+                                font-size: 14px;
+                                color: #333;
+                                line-height: 1.2;
+                            }}
                             .heatmap-tokens {{
                                 display: flex;
                                 flex-wrap: wrap;
                                 gap: 1px;
-                                margin-bottom: 6px;
+                                margin-bottom: 4px;
                             }}
-                            .bottom-row {{
+                            .word {{
+                                padding: 0px 4px;
+                                border-radius: 3px;
+                                margin: 1px;
+                            }}
+                            .color-scale-container {{
+                                width: 100%;
+                                margin-top: 5px;
                                 display: flex;
-                                gap: 16px;
-                                margin-bottom: 8px;
-                            }}
-                            .explanation-col {{
-                                flex: 1;
-                                min-width: 0;
-                                border: 1px solid #eee;
-                                border-radius: 4px;
-                                padding: 6px;
-                                background: #fafbfc;
-                            }}
-                            .explanation-title {{
-                                font-weight: bold;
-                                margin-bottom: 2px;
-                            }}
-                            .explanation-text {{
-                                margin-top: 4px;
-                                font-size: 12px;
-                                color: #333;
+                                flex-direction: column;
+                                align-items: stretch;
+                                box-sizing: border-box;
                             }}
                             .color-scale-horizontal {{
                                 width: 100%;
-                                height: 12px;
+                                height: 8px;
                                 background: linear-gradient(to right, #66b3ff 0%, #b3e0ff 25%, #ffffff 50%, #ffd3b6 75%, #ffa07a 100%);
                                 border: 1px solid #ccc;
                                 border-radius: 2px;
-                                margin: 6px 0 2px 0;
+                                margin: 1px 0;
+                                box-sizing: border-box;
                             }}
                             .scale-labels-horizontal {{
                                 display: flex;
                                 justify-content: space-between;
-                                font-size: 11px;
+                                font-size: 12px;
                                 color: #666;
+                                width: 100%;
+                                padding: 0;
+                                box-sizing: border-box;
                             }}
                         </style>
                     </head>
                     <body>
                     <div class="figure-container">
-                        <div class="top-row">
-                            <div class="model-decision-col">
-                                <div class="model-decision-label"><b>Model Decision:</b> {decision_choice}</div>
-                                <div class="heatmap-tokens">
+                        <div class="decision-section">
+                            <div class="explanation-title">Model Decision: {decision_choice}</div>
+                            <div class="heatmap-tokens">
                     """
                     )
 
@@ -391,7 +408,6 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                     html_content.append("</div></div>")
 
                     # Bottom row: best and worst explanations
-                    html_content.append('<div class="bottom-row">')
                     if "explanation_attributions" in scenario and "explanation_outputs" in scenario:
                         explanation_attrs = scenario["explanation_attributions"]
                         explanation_texts = scenario["explanation_outputs"]
@@ -420,7 +436,7 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                                 expl_attr = explanation_attrs[idx]
                                 expl_text = explanation_texts[idx]
                                 cosine_score = calculate_cosine_similarity(scenario["decision_attributions"], expl_attr)
-                                html_content.append(f'<div class="explanation-col">')
+                                html_content.append('<div class="explanation-section">')
                                 html_content.append(
                                     f'<div class="explanation-title">{label} ('
                                     f'Spearman: <span class="spearman-score">{spearman:.4f}</span>, '
@@ -476,16 +492,17 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
                                 # For the explanation text, join the cleaned tokens after skip_tokens
                                 html_content.append(f'<div class="explanation-text">{expl_text.strip()}</div>')
                                 html_content.append("</div>")
-                    html_content.append("</div>")  # Close bottom-row
 
                     # Color scale
                     html_content.append(
                         """
-                        <div class="color-scale-horizontal"></div>
-                        <div class="scale-labels-horizontal">
-                            <span>-1.0</span>
-                            <span>0.0</span>
-                            <span>1.0</span>
+                        <div class="color-scale-container">
+                            <div class="color-scale-horizontal"></div>
+                            <div class="scale-labels-horizontal">
+                                <span>-1.0</span>
+                                <span>0.0</span>
+                                <span>1.0</span>
+                            </div>
                         </div>
                     </div>
                     </body>
@@ -505,7 +522,7 @@ def create_attribution_heatmap(file_path: str, num_scenarios: int = 20, output_d
 
 if __name__ == "__main__":
 
-    file_path = "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1.jsonl"
+    file_path = "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250404_120218_LIME_llama3.1/ecqa_20250404_120218_LIME_llama3.1_fixed.jsonl"
 
     # Create heatmaps for feature attributions
     create_attribution_heatmap(file_path, num_scenarios=300)

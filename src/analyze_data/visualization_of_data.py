@@ -163,57 +163,105 @@ def plot_ranked_kde(jsonl_file, metric_type="cosine", dataset_name="", output_di
 
     print(f"Parsed {len(data)} scenario objects for ranked KDE")
 
-    # Use compute_explanation_ranks to extract and sort scores for each scenario
-    rank_data = {f"Rank {i+1}": [] for i in range(5)}
-    for scenario in data:
-        ranked_explanations = compute_explanation_ranks(scenario, metric_type=metric_type)
-        if len(ranked_explanations) == 5:
-            for i, score_info in enumerate(ranked_explanations):
-                rank_data[f"Rank {i+1}"].append(score_info[metric_type])
+    # Create figure with two subplots side by side
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
 
-    # Print how many scores per rank for debugging
-    print("Rank data counts:")
-    for rank_label, scores in rank_data.items():
-        print(rank_label, len(scores))
+    # Process and plot both metrics
+    for ax, current_metric in [(ax1, "cosine"), (ax2, "spearman")]:
+        # Extract scores by rank with updated labels
+        rank_data = {"Rank 1 (Best)": [], "Rank 2": [], "Rank 3": [], "Rank 4": [], "Rank 5 (Worst)": []}
+        for scenario in data:
+            ranked_explanations = compute_explanation_ranks(scenario, metric_type=current_metric)
+            if len(ranked_explanations) == 5:
+                for i, score_info in enumerate(ranked_explanations):
+                    rank_label = "Rank 1 (Best)" if i == 0 else "Rank 5 (Worst)" if i == 4 else f"Rank {i+1}"
+                    rank_data[rank_label].append(score_info[current_metric])
 
-    # Define colors to match the reference image
-    rank_colors = {"Rank 1": "blue", "Rank 2": "orange", "Rank 3": "green", "Rank 4": "red", "Rank 5": "purple"}
+        # Calculate mean of all scores to center the plot
+        all_scores = []
+        for scores in rank_data.values():
+            all_scores.extend(scores)
+        mean_score = np.mean(all_scores)
+        std_score = np.std(all_scores)
 
-    # Plot
-    plt.figure(figsize=(10, 6))
-    # plt.xlim(0, 1)  # or (-1, 1) for Spearman
-    for rank_label, scores in rank_data.items():
-        if scores:
-            sns.kdeplot(
-                scores,
-                label=rank_label,
-                fill=True,
-                common_norm=False,
-                color=rank_colors[rank_label],
-                alpha=0.3,
-                linewidth=2,
-                bw_adjust=1,
-            )
+        # Set x-axis limits centered around the mean with a reasonable range
+        x_min = mean_score - 3 * std_score
+        x_max = mean_score + 3 * std_score
 
-    if metric_type == "cosine":
-        metric_name = "Cosine Similarity"
-    elif metric_type == "spearman":
-        metric_name = "Spearman Correlation"
-    else:
-        metric_name = "Local Monotonicity Alignment"
-    plt.title(f"{dataset_name}: Distribution of {metric_name} Scores by Explanation Rank")
-    plt.xlabel(f"{metric_name}")
-    plt.ylabel("Density")
-    plt.legend(title="Explanation Rank", loc="best")
-    plt.grid(True, alpha=0.3)
+        # Ensure we don't exceed the valid range for each metric
+        if current_metric in ["cosine", "spearman"]:
+            x_min = max(x_min, -1)
+            x_max = min(x_max, 1)
+        else:  # lma
+            x_min = max(x_min, 0)
+            x_max = min(x_max, 1)
+
+        ax.set_xlim(x_min, x_max)
+
+        # Define colors to match the reference image
+        rank_colors = {
+            "Rank 1 (Best)": "blue",
+            "Rank 2": "orange",
+            "Rank 3": "green",
+            "Rank 4": "red",
+            "Rank 5 (Worst)": "purple",
+        }
+
+        for rank_label, scores in rank_data.items():
+            if scores:
+                sns.kdeplot(
+                    scores,
+                    label=rank_label,
+                    fill=True,  # Restore the fill
+                    common_norm=False,
+                    color=rank_colors[rank_label],
+                    alpha=0.3,  # Restore original alpha
+                    linewidth=2,
+                    bw_adjust=1,
+                    ax=ax,
+                )
+
+        metric_name = "Cosine Similarity" if current_metric == "cosine" else "Spearman Correlation"
+        ax.set_xlabel(metric_name, fontsize=26)
+        # Only set ylabel for the first subplot (cosine)
+        if current_metric == "cosine":
+            ax.set_ylabel("Density", fontsize=26)
+        else:
+            ax.set_ylabel("")  # Remove ylabel for spearman
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(axis="both", which="major", labelsize=26)
+
+        # Create legend for this subplot
+        ax.legend(title="Explanation Rank", loc="upper right", fontsize=26, title_fontsize=26)
+
+    # Create a single legend at the top using handles from ax1
+    handles, labels = ax1.get_legend_handles_labels()
+    # Reverse the order of handles and labels
+    handles = handles[::-1]
+    labels = labels[::-1]
+    fig.legend(
+        handles,
+        labels,
+        loc="center",
+        bbox_to_anchor=(0.5, 0.85),  # More reasonable legend position
+        ncol=5,
+        fontsize=26,
+    )
+
+    # Now we can safely remove the individual legends
+    ax1.get_legend().remove()
+    ax2.get_legend().remove()
+
+    # Adjust layout to make room for the legend
     plt.tight_layout()
+    plt.subplots_adjust(top=0.80, bottom=0.15)  # Restore original top margin
 
     if output_dir is None:
         output_dir = os.path.dirname(jsonl_file) or "."
 
-    output_path = os.path.join(output_dir, f"{metric_type}_ranked_kde.png")
-    plt.savefig(output_path, dpi=300)
-    print(f"Ranked KDE figure saved to: {output_path}")
+    output_path = os.path.join(output_dir, "ranked_kde_combined.png")
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"Combined ranked KDE figure saved to: {output_path}")
     plt.show()
 
 
