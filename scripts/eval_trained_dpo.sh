@@ -5,19 +5,14 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=2
 
 # Default paths - adjust these as needed
-# MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250421_121737_lr2.79e-06_beta6.03/best_model"
-MODEL_PATH="models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model"
-DATASET_PATH="data/collection_data/codah/unsloth_Llama-3.2-3B-Instruct/codah_20250506_085629_LIME_llama3.2/test_272.jsonl"
+MODEL_PATH="models/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250510_194800_lr4.65e-06_beta5.64/checkpoint-448"
+DATASET_PATH="data/collection_data/arc_easy/unsloth_Meta-Llama-3.1-8B-Instruct/arc_easy_20250424_152104_LIME_llama3.1/test_521.jsonl"
 OUTPUT_DIR=""
 
-
 # Better detection of model ID vs local path
-# Check if it starts with typical absolute/relative path indicators
-# OR if it has more than one slash (typical for local paths)
-# OR if it starts with "trained_models" (which is clearly a local path in this project)
 if [[ "$MODEL_PATH" =~ ^[./] || "$MODEL_PATH" =~ ^/ || 
       $(echo "$MODEL_PATH" | tr -cd '/' | wc -c) -gt 1 || 
       "$MODEL_PATH" =~ ^trained_models ]]; then
@@ -112,7 +107,7 @@ echo "Base seed: $SEED"
 # Set WANDB_MODE to offline/online
 export WANDB_MODE=online
 
-# Run the evaluation script
+# Run the evaluation script with --ignore_pre_generated flag
 python -m src.test_evaluations.eval_trained_dpo \
   --model_path "$MODEL_PATH" \
   --dataset_path "$DATASET_PATH" \
@@ -121,6 +116,7 @@ python -m src.test_evaluations.eval_trained_dpo \
   --temperature "$TEMPERATURE" \
   --seed "$SEED" \
   --wandb "$USE_WANDB" \
+  --ignore_pre_generated \
   $SUBSET $OUTPUT_DIR $IS_MODEL_ID
 
 echo "Evaluation completed!"

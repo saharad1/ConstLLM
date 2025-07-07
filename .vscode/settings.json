@@ -1,4 +1,4 @@
 {
     "python.analysis.typeCheckingMode": "off",
-    "workbench.activityBar.location": "top"
+    "workbench.activityBar.location": "default"
 }

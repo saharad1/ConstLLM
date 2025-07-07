@@ -37,6 +37,7 @@ def eval_trained_dpo(
     output_dir=None,
     is_model_id=False,
     base_seed=42,
+    ignore_pre_generated=False,
 ):
     """
     Evaluate a trained DPO model on a test dataset by computing attributions.
@@ -52,6 +53,7 @@ def eval_trained_dpo(
         output_dir: Optional custom output directory
         is_model_id: If True, model_path is treated as a HuggingFace model ID instead of a local path
         base_seed: Base seed for reproducible experiments, default is 42
+        ignore_pre_generated: If True, ignore any pre-generated attributions in the dataset
     """
     # Convert paths to Path objects if they're strings and not a model ID
     if not is_model_id:
@@ -135,6 +137,7 @@ def eval_trained_dpo(
                     "attribution_method": attribution_method_name,
                     "num_dec_exp": num_dec_exp,
                     "temperature": temperature,
+                    "ignore_pre_generated": ignore_pre_generated,
                 },
             )
             print("WandB initialized successfully!")
@@ -213,7 +216,7 @@ def eval_trained_dpo(
 
     # Process scenarios
     start_time_total = time.time()
-    total_time_sum = 0  # Initialize total time sum
+    total_time_sum = 0
     for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
         # Get scenario ID (ensure it exists)
         if hasattr(scenario_item, "scenario_id"):
@@ -229,8 +232,18 @@ def eval_trained_dpo(
         try:
             # Track time for this specific scenario (individual timing)
             start_time_scenario = time.time()
-            pre_generated_decision_output = scenario_item.get("decision_output")
-            pre_generated_decision_attributions = scenario_item.get("decision_attributions")
+
+            # Get pre-generated outputs and attributions if we're not ignoring them
+            pre_generated_decision_output = None
+            pre_generated_decision_attributions = None
+            if not ignore_pre_generated:
+                if isinstance(scenario_item, dict):
+                    pre_generated_decision_output = scenario_item.get("decision_output")
+                    pre_generated_decision_attributions = scenario_item.get("decision_attributions")
+                else:
+                    pre_generated_decision_output = getattr(scenario_item, "decision_output", None)
+                    pre_generated_decision_attributions = getattr(scenario_item, "decision_attributions", None)
+
             # Process the scenario directly using the core processor
             scenario_res = process_scenario(
                 llm_analyzer=llm_analyzer,
@@ -238,9 +251,9 @@ def eval_trained_dpo(
                 methods_params_decision=methods_params_decision,
                 methods_params_explanation=methods_params_explanation,
                 num_dec_exp=num_dec_exp,
+                generation_seeds=generation_seeds,
                 pre_generated_decision_output=pre_generated_decision_output,
                 pre_generated_decision_attributions=pre_generated_decision_attributions,
-                generation_seeds=generation_seeds,  # Pass the seeds to process_scenario
             )
 
             # Ensure scenario_id is set
@@ -388,6 +401,9 @@ if __name__ == "__main__":
         "--is_model_id", action="store_true", help="Treat model_path as a HuggingFace model ID instead of a local path"
     )
     parser.add_argument("--seed", type=int, default=42, help="Base seed for reproducible experiments")
+    parser.add_argument(
+        "--ignore_pre_generated", action="store_true", help="Ignore any pre-generated attributions in the dataset"
+    )
 
     args = parser.parse_args()
 
@@ -405,4 +421,5 @@ if __name__ == "__main__":
         output_dir=args.output_dir,
         is_model_id=args.is_model_id,
         base_seed=args.seed,
+        ignore_pre_generated=args.ignore_pre_generated,
     )

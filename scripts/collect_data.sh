@@ -37,14 +37,14 @@ export CUDA_VISIBLE_DEVICES=1
 # arc_easy
 # arc_challenge
 
-MODEL_ID="unsloth/Meta-Llama-3.1-8B-Instruct"
-DATASET="codah"
-ATTRIBUTION_METHOD="LIME"
+MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
+DATASET="arc_easy"
+ATTRIBUTION_METHOD="LIG"
 NUM_EXPLANATIONS=5
 SUBSET=""
-USE_WANDB=false
-RESUME_RUN=""
-TEMPERATURE=1.0
+USE_WANDB=true
+RESUME_RUN="ecqa_20250521_120325_LIG_llama3.1"
+TEMPERATURE=0.7
 SEED=42
 
 
