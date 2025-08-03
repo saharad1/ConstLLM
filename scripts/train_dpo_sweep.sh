@@ -5,7 +5,7 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=3
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
@@ -18,12 +18,12 @@ export CUDA_VISIBLE_DEVICES=1
 # meta-llama/Llama-3.2-3B-Instruct
 
 # Path to the dataset
-DATASET_PATH="data/collection_data/arc_easy/unsloth_Llama-3.2-3B-Instruct/arc_easy_20250417_124056_LIME_llama3.2"
+DATASET_PATH="data/collection_data/arc_easy/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_easy_20250527_100818_LIG_llama3.1"
 
 # Run the DPO training sweep script with command-line arguments
 python -m src.pipeline_dpo.train_dpo_unsloth_sweep \
   --dataset_path "$DATASET_PATH" \
-  --model_id "unsloth/Llama-3.2-3B-Instruct" \
+  --model_id "meta-llama/Meta-Llama-3.1-8B-Instruct" \
   --dataset_name "arc_easy" \
   --similarity_metric "spearman" \
   --diff_threshold_train 0 \

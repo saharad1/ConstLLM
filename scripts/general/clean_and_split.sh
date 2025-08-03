@@ -5,7 +5,7 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Default values
-INPUT_FILE="data/collection_data/arc_challenge/unsloth_Meta-Llama-3.1-8B-Instruct/arc_challenge_20250415_155822_LIME_llama3.1/arc_challenge_20250415_155822_LIME_llama3.1.jsonl"
+INPUT_FILE="data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/ecqa_20250403_133655_LIG_llama3.2_fixed.jsonl"
 TRAIN_RATIO=0.7
 EVAL_RATIO=0.2
 TEST_RATIO=0.1

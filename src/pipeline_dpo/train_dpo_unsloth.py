@@ -162,6 +162,23 @@ def train_dpo_seq(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_sc
     eval_dataset = load_dpo_dataset(str(eval_path), include_scores=include_scores)
     print(f"Number of train samples: {len(train_dataset)}")
     print(f"Number of eval samples: {len(eval_dataset)}")
+    print(f"Attribution method: {attribution_method}")
+
+    # Extract attribution method from dataset path
+    dataset_path_str = str(dataset_path)
+    attribution_method = "unknown"
+
+    # Look for attribution method in the dataset path
+    if "_LIME_" in dataset_path_str:
+        attribution_method = "LIME"
+    elif "_LIG_" in dataset_path_str:
+        attribution_method = "LIG"
+    elif "_SHAPLEY_VALUE_SAMPLING_" in dataset_path_str:
+        attribution_method = "SHAPLEY_VALUE_SAMPLING"
+    elif "_FEATURE_ABLATION_" in dataset_path_str:
+        attribution_method = "FEATURE_ABLATION"
+    elif "_KERNEL_SHAP_" in dataset_path_str:
+        attribution_method = "KERNEL_SHAP"
 
     # Generate a timestamped run name
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
@@ -171,9 +188,9 @@ def train_dpo_seq(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_sc
     output_dir = Path("trained_models") / "ecqa_models" / "LLama-instruct-8b" / run_name
     wandb_mode = True
     wandb.init(
-        project="tune-llm-dpo",
+        project=f"tune-llm-dpo-{attribution_method}",
         name=run_name,
-        tags=[dataset_name, "llama"],
+        tags=[dataset_name, "llama", attribution_method],
         mode="online" if wandb_mode else "disabled",
     )
 

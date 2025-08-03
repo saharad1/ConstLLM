@@ -220,10 +220,8 @@ def run_collect_data(
             save_progress(progress_file, progress_data)
             continue
 
-        # Save the result
-        save_scenario_result(scenario_res, jsonl_filename)
-
-        # Mark as processed
+        # Mark as processed (scenario already saved in process_single_scenario)
+        # Note: save_scenario_result is called inside process_single_scenario to handle retries properly
         processed_scenarios.add(scenario_id)
 
         # Update progress

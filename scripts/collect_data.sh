@@ -38,7 +38,7 @@ export CUDA_VISIBLE_DEVICES=1
 # arc_challenge
 
 MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
-DATASET="arc_easy"
+DATASET="ecqa"
 ATTRIBUTION_METHOD="LIG"
 NUM_EXPLANATIONS=5
 SUBSET=""

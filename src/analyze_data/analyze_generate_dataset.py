@@ -474,7 +474,9 @@ def print_scenario_details(file_path: str, num_scenarios: int = 20, output_file:
 
 if __name__ == "__main__":
     # file_path = "data/collection_data/codah/unsloth_Llama-3.2-3B-Instruct/codah_20250506_085629_LIME_llama3.2/codah_20250506_085629_LIME_llama3.2.jsonl"
-    file_path = "data/eval_results/arc_challenge/huggingface/Llama-3.2-3B-Instruct/eval_250516_220701_test_255_LIME/eval_250516_220701_test_255_LIME_results.jsonl"
+    file_path = (
+        "data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/test_1090.jsonl"
+    )
 
     # Print overall metrics
     metrics = analyze_dataset(file_path)

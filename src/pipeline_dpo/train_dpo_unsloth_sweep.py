@@ -248,9 +248,25 @@ def run_sweep(
     #         # "diff_threshold_train": {"min": 0, "max": 0.2, "distribution": "uniform"},
     #     },
     # }
-    # Create a unique sweep project name that includes model, dataset and similarity metric
+    # Extract attribution method from dataset path
+    dataset_path_str = str(dataset_path)
+    attribution_method = "unknown"
+
+    # Look for attribution method in the dataset path
+    if "_LIME_" in dataset_path_str:
+        attribution_method = "LIME"
+    elif "_LIG_" in dataset_path_str:
+        attribution_method = "LIG"
+    elif "_SHAPLEY_VALUE_SAMPLING_" in dataset_path_str:
+        attribution_method = "SHAPLEY_VALUE_SAMPLING"
+    elif "_FEATURE_ABLATION_" in dataset_path_str:
+        attribution_method = "FEATURE_ABLATION"
+    elif "_KERNEL_SHAP_" in dataset_path_str:
+        attribution_method = "KERNEL_SHAP"
+
+    # Create a unique sweep project name that includes model, dataset, similarity metric, and attribution method
     model_short_name = model_id.split("/")[-1] if "/" in model_id else model_id  # Extract just the model name
-    sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}_sweep"
+    sweep_project = f"dpo-{model_short_name}-{dataset_name}-{similarity_metric}-{attribution_method}_sweep"
 
     # Include fixed parameters in the sweep name
     sweep_config_name = f"{similarity_metric}_diff{diff_threshold_train}_bs{sweep_config['parameters']['per_device_train_batch_size']['values'][0]}_ep{sweep_config['parameters']['num_train_epochs']['values'][0]}"
@@ -286,6 +302,7 @@ def run_sweep(
                 "dataset": dataset_name,
                 "model_id": model_id,
                 "score_scale_factor": score_scale_factor,
+                "attribution_method": attribution_method,
             },
             allow_val_change=True,
         )
@@ -313,6 +330,7 @@ def run_sweep(
     print(f"Starting sweep with {sweep_count} runs:")
     print(f"\tDataset: {dataset_name}")
     print(f"\tSimilarity metric: {similarity_metric}")
+    print(f"\tAttribution method: {attribution_method}")
     print(f"\tDifference threshold: {diff_threshold_train} (train), {diff_threshold_eval} (eval)")
 
     wandb.agent(sweep_id, function=sweep_train, count=sweep_count)

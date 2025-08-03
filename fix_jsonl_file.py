@@ -99,11 +99,16 @@ def analyze_jsonl_file(jsonl_file, num_samples=5):
 
 
 if __name__ == "__main__":
-    # Example usage
-    input_file = "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5.jsonl"
-    output_file = "data/collection_data/ecqa/unsloth_Qwen2.5-7B-Instruct/ecqa_20250405_155841_LIME_Qwen2.5/ecqa_20250405_155841_LIME_Qwen2.5_fixed.jsonl"
+    # Fix the specific file that's causing the issue
+    input_file = "data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/ecqa_20250403_133655_LIG_llama3.2.jsonl"
+    output_file = "data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/ecqa_20250403_133655_LIG_llama3.2_fixed.jsonl"
 
-    # fix_jsonl_file_advanced(input_file, output_file)
-    # print(f"Fixed JSONL file saved to {output_file}")
+    print(f"Fixing JSONL file: {input_file}")
+    print(f"Output will be saved to: {output_file}")
 
+    fix_jsonl_file_advanced(input_file, output_file)
+    print(f"Fixed JSONL file saved to {output_file}")
+
+    # Analyze the fixed file
+    print("\nAnalyzing the fixed file:")
     analyze_jsonl_file(output_file)

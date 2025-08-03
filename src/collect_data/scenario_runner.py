@@ -80,6 +80,7 @@ def process_single_scenario(
                 scenario_res.scenario_id = scenario_id
 
             # After processing is successful, save both the result and detailed log
+            # This ensures scenarios are saved even if they succeed after retries
             save_scenario_result(scenario_res, jsonl_filename)
             save_scenario_details(scenario_res, output_dir)
 
