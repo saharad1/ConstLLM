@@ -4,6 +4,13 @@
 eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
+# Datasets names:
+# ecqa
+# arc_easy
+# arc_challenge
+# codah
+# choice75
+
 # Default values
 DATASET_NAME=""
 SUBSET=""
@@ -66,7 +73,7 @@ if [[ -z "$DATASET_NAME" ]]; then
 fi
 
 # Build the command
-CMD="python -m src.pipeline_dpo.create_split_indices $DATASET_NAME"
+CMD="python -m src.prepare_datasets.create_split_indices $DATASET_NAME"
 
 # Add optional arguments
 if [[ -n "$SUBSET" ]]; then

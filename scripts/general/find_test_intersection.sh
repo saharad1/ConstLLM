@@ -5,22 +5,27 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Default values
-# To this:
 TEST_FILES=(
-  "data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/test_1090.jsonl"
-  "data/collection_data/ecqa/unsloth_Llama-3.2-3B-Instruct/ecqa_20250506_085629_LIME_llama3.2/test_1085.jsonl"
-  "data/collection_data/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250508_173142_LIME_llama3.1/test_1088.jsonl"
+  "data/collection_data/arc_easy/meta-llama_Llama-3.2-3B-Instruct/arc_easy_20250404_115258_LIG_llama3.2/test_521.jsonl"
+  "data/collection_data/arc_easy/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_easy_20250527_100818_LIG_llama3.1/test_521.jsonl"
+  "data/collection_data/arc_easy/unsloth_Llama-3.2-3B-Instruct/arc_easy_20250417_124056_LIME_llama3.2/test_517.jsonl"
+  "data/collection_data/arc_easy/unsloth_Meta-Llama-3.1-8B-Instruct/arc_easy_20250424_152104_LIME_llama3.1/test_521.jsonl"
 )
 SEARCH_DIR=""
-DATASET_NAME=""
-OUTPUT_DIR="data/consistent_test_sets"
+DATASET_NAME="arc_easy"
+OUTPUT_DIR="data/intersection_test_sets"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --test_files)
-            TEST_FILES="$2"
-            shift 2
+            shift  # Remove --test_files
+            TEST_FILES=()
+            # Collect all remaining arguments as test files until we hit another option
+            while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                TEST_FILES+=("$1")
+                shift
+            done
             ;;
         --search_dir)
             SEARCH_DIR="$2"
@@ -55,8 +60,13 @@ done
 # Build the command
 CMD="python -m src.find_test_set_intersection"
 
-if [[ -n "$TEST_FILES" ]]; then
-    CMD="$CMD --test_files $TEST_FILES"
+if [[ ${#TEST_FILES[@]} -gt 0 ]]; then
+    CMD="$CMD --test_files"
+    for file in "${TEST_FILES[@]}"; do
+        if [[ -n "$file" ]]; then  # Skip empty strings
+            CMD="$CMD $file"
+        fi
+    done
 fi
 
 if [[ -n "$SEARCH_DIR" ]]; then

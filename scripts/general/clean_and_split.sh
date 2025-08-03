@@ -56,6 +56,11 @@ fi
 
 CMD="$CMD --train_ratio $TRAIN_RATIO --eval_ratio $EVAL_RATIO --test_ratio $TEST_RATIO --seed $SEED"
 
+echo "WARNING: This script creates new random splits each time it runs."
+echo "For consistent test sets across data collections, use the new workflow:"
+echo "1. First run: ./scripts/general/create_split_indices.sh --dataset <dataset_name>"
+echo "2. Then run: ./scripts/general/clean_and_apply_split_indices.sh --input_file <file> --split_file <split_file>"
+
 # Execute the command
 echo "Running: $CMD"
 eval $CMD
