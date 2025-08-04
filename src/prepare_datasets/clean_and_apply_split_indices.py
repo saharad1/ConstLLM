@@ -183,7 +183,7 @@ def apply_split_indices_to_cleaned_data(cleaned_data: List[Dict], split_info: Di
     test_indices = split_info["test_indices"]
 
     # Helper function to get data for indices
-    def get_data_for_indices(indices: List[int], split_name: str) -> List[Dict]:
+    def get_data_for_indices(indices: List[int], split_name: str) -> tuple[List[Dict], List[int]]:
         data = []
         missing = []
         for idx in indices:
@@ -195,16 +195,16 @@ def apply_split_indices_to_cleaned_data(cleaned_data: List[Dict], split_info: Di
         if missing:
             print(f"Warning: {len(missing)} scenarios missing from {split_name} split: {missing[:10]}...")
 
-        return data
+        return data, missing
 
-    train_data = get_data_for_indices(train_indices, "train")
-    eval_data = get_data_for_indices(eval_indices, "eval")
-    test_data = get_data_for_indices(test_indices, "test")
+    train_data, train_missing = get_data_for_indices(train_indices, "train")
+    eval_data, eval_missing = get_data_for_indices(eval_indices, "eval")
+    test_data, test_missing = get_data_for_indices(test_indices, "test")
 
     print(f"Split results:")
-    print(f"  Train: {len(train_data)} examples")
-    print(f"  Eval: {len(eval_data)} examples")
-    print(f"  Test: {len(test_data)} examples")
+    print(f"  Train: {len(train_data)} examples (expected: {len(train_indices)}, missing: {len(train_missing)})")
+    print(f"  Eval: {len(eval_data)} examples (expected: {len(eval_indices)}, missing: {len(eval_missing)})")
+    print(f"  Test: {len(test_data)} examples (expected: {len(test_indices)}, missing: {len(test_missing)})")
 
     # Save splits
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -218,14 +218,45 @@ def apply_split_indices_to_cleaned_data(cleaned_data: List[Dict], split_info: Di
     save_jsonl(eval_data, output_dir / f"eval_{len(eval_data)}.jsonl")
     save_jsonl(test_data, output_dir / f"test_{len(test_data)}.jsonl")
 
+    # Calculate duplicate information
+    scenario_ids = [item.get("scenario_id") for item in cleaned_data if item.get("scenario_id") is not None]
+    unique_scenario_ids = set(scenario_ids)
+    duplicate_count = len(scenario_ids) - len(unique_scenario_ids)
+
+    # Find duplicate scenario IDs
+    from collections import Counter
+
+    duplicates = Counter(scenario_ids)
+    duplicate_scenario_ids = [sid for sid, count in duplicates.items() if count > 1]
+
     # Save split info for this specific collection
     collection_info = {
         "split_file_used": str(split_info.get("dataset_name", "unknown")),
+        "original_dataset_size": split_info.get("original_dataset_size", 0),
         "collected_data_size": len(cleaned_data),
-        "train_size": len(train_data),
-        "eval_size": len(eval_data),
-        "test_size": len(test_data),
-        "original_split_info": split_info,
+        "unique_data_size": len(unique_scenario_ids),
+        "duplicate_count": duplicate_count,
+        "duplicate_scenario_ids": duplicate_scenario_ids,
+        "split_comparison": {
+            "train": {
+                "expected_size": len(train_indices),
+                "actual_size": len(train_data),
+                "missing_scenarios": train_missing,
+                "missing_count": len(train_missing),
+            },
+            "eval": {
+                "expected_size": len(eval_indices),
+                "actual_size": len(eval_data),
+                "missing_scenarios": eval_missing,
+                "missing_count": len(eval_missing),
+            },
+            "test": {
+                "expected_size": len(test_indices),
+                "actual_size": len(test_data),
+                "missing_scenarios": test_missing,
+                "missing_count": len(test_missing),
+            },
+        },
     }
 
     with open(output_dir / "split_info.json", "w") as f:

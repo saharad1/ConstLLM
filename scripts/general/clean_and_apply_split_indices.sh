@@ -5,9 +5,8 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Default values
-INPUT_FILE=""
-SPLIT_FILE=""
-OUTPUT_DIR=""
+INPUT_FILE="data/collection_data/arc_easy/unsloth_Meta-Llama-3.1-8B-Instruct/arc_easy_20250424_152104_LIME_llama3.1/arc_easy_20250424_152104_LIME_llama3.1.jsonl"
+SPLIT_FILE="data/dataset_splits/arc_easy_split_indices.json"
 KEEP_CLEANED=false
 
 # Parse command line arguments
@@ -21,10 +20,6 @@ while [[ $# -gt 0 ]]; do
             SPLIT_FILE="$2"
             shift 2
             ;;
-        --output_dir|-o)
-            OUTPUT_DIR="$2"
-            shift 2
-            ;;
         --keep_cleaned|-k)
             KEEP_CLEANED=true
             shift
@@ -33,7 +28,6 @@ while [[ $# -gt 0 ]]; do
             echo "Unknown option: $1"
             echo "Usage: $0 --input_file <path> --split_file <path> [options]"
             echo "Options:"
-            echo "  --output_dir <dir>        Output directory (default: same as input file)"
             echo "  --keep_cleaned            Keep the intermediate cleaned file"
             exit 1
             ;;
@@ -53,10 +47,6 @@ fi
 
 # Build the command
 CMD="python -m src.prepare_datasets.clean_and_apply_split_indices \"$INPUT_FILE\" \"$SPLIT_FILE\""
-
-if [[ -n "$OUTPUT_DIR" ]]; then
-    CMD="$CMD --output_dir \"$OUTPUT_DIR\""
-fi
 
 if [[ "$KEEP_CLEANED" == true ]]; then
     CMD="$CMD --keep_cleaned"

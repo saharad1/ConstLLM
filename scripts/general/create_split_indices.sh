@@ -9,10 +9,9 @@ conda activate ConstLLM
 # arc_easy
 # arc_challenge
 # codah
-# choice75
 
 # Default values
-DATASET_NAME=""
+DATASET_NAME="codah"
 SUBSET=""
 TRAIN_RATIO=0.7
 EVAL_RATIO=0.2

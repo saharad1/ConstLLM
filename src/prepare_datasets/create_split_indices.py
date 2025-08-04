@@ -4,7 +4,7 @@ import random
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from prepare_datasets.dataset_utils import load_original_dataset
+from src.prepare_datasets.dataset_utils import load_original_dataset
 
 
 def create_split_indices(
@@ -56,18 +56,18 @@ def create_split_indices(
     # Create split indices file
     split_info = {
         "dataset_name": dataset_name,
+        "original_dataset_size": len(dataset),
+        "train_size": len(train_indices),
+        "eval_size": len(eval_indices),
+        "test_size": len(test_indices),
         "subset": subset,
         "train_ratio": train_ratio,
         "eval_ratio": eval_ratio,
         "test_ratio": test_ratio,
         "seed": seed,
-        "original_dataset_size": len(dataset),
         "train_indices": train_indices,
         "eval_indices": eval_indices,
         "test_indices": test_indices,
-        "train_size": len(train_indices),
-        "eval_size": len(eval_indices),
-        "test_size": len(test_indices),
     }
 
     # Save split indices file

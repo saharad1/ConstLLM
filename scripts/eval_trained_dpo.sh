@@ -20,8 +20,8 @@ export CUDA_VISIBLE_DEVICES=0
 # arc_easy,llama3.2: models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model
 
 # Default paths - adjust these as needed
-MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
-DATASET_PATH="data/collection_data/arc_challenge/unsloth_Llama-3.2-3B-Instruct/arc_challenge_20250421_094925_LIME_llama3.2/test_255.jsonl"
+MODEL_PATH="models/ecqa/Llama-3.2-3B-Instruct/ecqa_250801_124134_lr9.97e-06_beta9.73/best_model"
+DATASET_PATH="data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/test_1089.jsonl"
 OUTPUT_DIR=""
 
 # Better detection of model ID vs local path
@@ -35,8 +35,13 @@ else
   IS_MODEL_ID="--is_model_id"
 fi
 
+# Attribution Methods:
+# LIG
+# LIME
+
+
 # Attribution method and other parameters
-ATTRIBUTION_METHOD="LIME"
+ATTRIBUTION_METHOD="LIG"
 NUM_DEC_EXP=5
 TEMPERATURE=0.7
 SUBSET=""
@@ -128,7 +133,7 @@ python -m src.test_evaluations.eval_trained_dpo \
   --temperature "$TEMPERATURE" \
   --seed "$SEED" \
   --wandb "$USE_WANDB" \
-  --ignore_pre_generated \
+  # --ignore_pre_generated \
   $SUBSET $OUTPUT_DIR $IS_MODEL_ID
 
 echo "Evaluation completed!"
