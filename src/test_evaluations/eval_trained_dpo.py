@@ -113,7 +113,8 @@ def eval_trained_dpo(
 
     # Create a unique run name
     timestamp = time.strftime("%y%m%d_%H%M%S")
-    run_name = f"eval_{timestamp}_{dataset_name}_{attribution_method_name}"
+    pregen_signal = "no_pregen" if ignore_pre_generated else "with_pregen"
+    run_name = f"eval_{timestamp}_{dataset_name}_{attribution_method_name}_{pregen_signal}"
 
     # Create output directories
     output_dir = base_output_dir / run_name
