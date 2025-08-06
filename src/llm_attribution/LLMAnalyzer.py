@@ -44,7 +44,7 @@ class LLMAnalyzer:
             self.model = model_id
             self.tokenizer = tokenizer
 
-        self.device = device
+        self.device = device_map
         self.temperature = temperature
 
         self.skip_tokens_dict = get_skip_tokens(
