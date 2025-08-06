@@ -38,6 +38,7 @@ def eval_trained_dpo(
     is_model_id=False,
     base_seed=42,
     ignore_pre_generated=False,
+    device_map=None,
 ):
     """
     Evaluate a trained DPO model on a test dataset by computing attributions.
@@ -207,7 +208,7 @@ def eval_trained_dpo(
 
     # Convert model_path to string to ensure compatibility with LLMAnalyzer
     model_path_str = str(model_path)
-    llm_analyzer = LLMAnalyzer(model_id=model_path_str, temperature=temperature)
+    llm_analyzer = LLMAnalyzer(model_id=model_path_str, device_map=device_map, temperature=temperature)
 
     # Compute deterministic seeds from the base seed for each generation
     print(f"Using base seed: {base_seed}")
@@ -405,6 +406,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ignore_pre_generated", action="store_true", help="Ignore any pre-generated attributions in the dataset"
     )
+    parser.add_argument(
+        "--device_map",
+        type=str,
+        default=None,
+        help="Device mapping for multi-GPU (auto, balanced, sequential, or specific mapping)",
+    )
 
     args = parser.parse_args()
 
@@ -423,4 +430,5 @@ if __name__ == "__main__":
         is_model_id=args.is_model_id,
         base_seed=args.seed,
         ignore_pre_generated=args.ignore_pre_generated,
+        device_map=args.device_map,
     )

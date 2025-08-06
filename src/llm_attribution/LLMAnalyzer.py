@@ -27,7 +27,7 @@ class LLMAnalyzer:
         self,
         model_id: Union[str, Any],
         tokenizer: Any = None,
-        device: str = "cuda",
+        device_map: Optional[str] = None,
         temperature: float = 0.7,
         extra_skip_tokens: list[str] = None,
         only_structure_tokens: bool = True,
@@ -35,7 +35,7 @@ class LLMAnalyzer:
         if isinstance(model_id, str):
             # Load the tokenizer and model directly
             model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(
-                model_id=model_id, use_quantization=True, device=device
+                model_id=model_id, device_map=device_map, use_quantization=True
             )
             self.tokenizer = model_bundle.tokenizer
             self.model = model_bundle.model

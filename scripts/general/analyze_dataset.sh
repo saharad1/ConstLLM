@@ -12,7 +12,7 @@ conda activate ConstLLM
 set -e
 
 # Default values
-DATASET_PATH="data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/test_1089.jsonl"
+DATASET_PATH="data/collection_data/arc_easy/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_easy_20250527_100818_LIG_llama3.1/test_521.jsonl"
 
 # Display help message
 function show_help {

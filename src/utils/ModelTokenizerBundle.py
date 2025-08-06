@@ -32,23 +32,31 @@ class ModelTokenizerBundle:
     def __init__(
         self,
         model_id: str,
-        device="cuda",
+        device_map: Optional[str] = None,
         use_quantization: bool = True,
         quantization_type: Optional[str] = "4bit",
     ):
         """
-        Initialize the ModelTokenizerBundle with a specified model ID and quantization option.
+        Initialize the ModelTokenizerBundle with a specified model ID and device configuration.
 
         Args:
             model_id (str): The identifier of the pre-trained model to load.
+            device_map (str, optional): Device mapping strategy. Options:
+                - None: Use single GPU (defaults to "cuda:0")
+                - "auto": Automatically distribute across available GPUs
+                - "balanced": Balance memory across GPUs
+                - "sequential": Load layers sequentially across GPUs
+                - "cuda:0": Single GPU
+                - "cuda:0,cuda:1": Specific GPU mapping
             use_quantization (bool, optional): Whether to use 4-bit quantization. Defaults to True.
+            quantization_type (str, optional): Quantization type ("4bit" or "8bit"). Defaults to "4bit".
         """
         self.model_id: str = model_id
+        self.device_map: Optional[str] = device_map
         self.use_quantization: bool = use_quantization
         self.quantization_type: Optional[str] = quantization_type
         self.tokenizer = None
         self.model = None
-        self.device = device
 
         self._initialize()
 
@@ -72,8 +80,11 @@ class ModelTokenizerBundle:
             print(f"Detected Unsloth model: {self.model_id}, using Unsloth-specific loading")
 
             try:
-
                 print(f"Loading Unsloth model: {self.model_id}")
+
+                # Determine device mapping for Unsloth models
+                device_map = self.device_map if self.device_map is not None else "cuda:0"
+                print(f"Using device map for Unsloth: {device_map}")
 
                 # Use unsloth's specialized model loading
                 self.model, self.tokenizer = FastLanguageModel.from_pretrained(
@@ -81,15 +92,18 @@ class ModelTokenizerBundle:
                     max_seq_length=2048,  # Adjust as needed for your use case
                     dtype=torch.float16,
                     load_in_4bit=False,  # Disable 4-bit loading for now
-                    device_map=self.device,
+                    device_map=device_map,
                 )
-                print(f"Unsloth model loaded successfully on device: {self.device}")
+                print(f"Unsloth model loaded successfully with device map: {device_map}")
             except ImportError as e:
                 print(f"Required package not found: {str(e)}")
                 raise
         else:
             # Standard model loading for non-unsloth models
-            model_kwargs = {"device_map": f"{self.device}"}
+            # Determine device mapping strategy
+            device_map = self.device_map if self.device_map is not None else "cuda:0"
+            model_kwargs = {"device_map": device_map}
+            print(f"Using device map: {device_map}")
 
             # Only apply quantization if explicitly requested AND model is not already quantized
             if self.use_quantization and not is_already_quantized:
@@ -168,7 +182,16 @@ class ModelTokenizerBundle:
         Returns:
             torch.Tensor: The attention mask tensor.
         """
-        return (input_ids != self.tokenizer.pad_token_id).long().to(self.device)
+        # Create attention mask
+        mask = (input_ids != self.tokenizer.pad_token_id).long()
+
+        # For multi-GPU models with device_map, let the model handle device placement
+        # For single GPU models, move to the appropriate device
+        if self.device_map is None or self.device_map == "cuda:0":
+            # Single GPU case - move to device
+            mask = mask.to("cuda:0")
+
+        return mask
 
     def __str__(self) -> str:
         """
@@ -178,6 +201,5 @@ class ModelTokenizerBundle:
             str: A string describing the ModelTokenizerBundle instance.
         """
         quantization_status = "with" if self.use_quantization else "without"
-        return (
-            f"ModelTokenizerBundle(model_id={self.model_id}, device={self.device}, {quantization_status} quantization)"
-        )
+        device_info = f"device_map={self.device_map}" if self.device_map else "device_map=None"
+        return f"ModelTokenizerBundle(model_id={self.model_id}, {device_info}, {quantization_status} quantization)"
