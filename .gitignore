@@ -16,3 +16,5 @@ others/
 datasets/
 outputs/
 /.vscode/
+.DS_Store
+
