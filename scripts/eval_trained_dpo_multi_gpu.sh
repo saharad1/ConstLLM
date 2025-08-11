@@ -25,6 +25,7 @@ export CUDA_VISIBLE_DEVICES=0,1
 MODEL_PATH="models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_125605_lr9.50e-06_beta8.37/best_model"
 DATASET_PATH="data/collection_data/arc_easy/meta-llama_Llama-3.2-3B-Instruct/arc_easy_20250404_115258_LIG_llama3.2/test_521.jsonl"
 OUTPUT_DIR=""
+RESUME_RUN=""
 
 # GPU Configuration
 USE_MULTI_GPU=true  # Enable multi-GPU by default
@@ -134,6 +135,10 @@ while [[ $# -gt 0 ]]; do
       DEVICE_MAP=""
       shift
       ;;
+    --resume_run|-r)
+      RESUME_RUN="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
       echo "Usage: $0 [options]"
@@ -154,6 +159,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --single_gpu: Force single GPU mode"
       echo "  --device_map: Device mapping (None/auto/balanced/sequential/cuda:0/cuda:0,cuda:1)"
       echo "  --gpus: Specify GPU devices (e.g., '0,1')"
+      echo "  --resume_run, -r: Resume a previous run"
       exit 1
       ;;
   esac
@@ -166,6 +172,9 @@ echo "WandB logging: $([ "$USE_WANDB" = true ] && echo "enabled" || echo "disabl
 echo "Model type: $([ -n "$IS_MODEL_ID" ] && echo "HuggingFace model ID" || echo "Local model path")"
 echo "Base seed: $SEED"
 echo "Pre-generated responses: $([ "$IGNORE_PRE_GENERATED" = true ] && echo "IGNORED" || echo "USED")"
+if [[ -n "$RESUME_RUN" ]]; then
+  echo "Resuming run: $RESUME_RUN"
+fi
 echo "GPU Configuration:"
 echo "  CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 echo "  Multi-GPU: $([ "$USE_MULTI_GPU" = true ] && echo "enabled" || echo "disabled")"
@@ -190,6 +199,7 @@ python -m src.test_evaluations.eval_trained_dpo \
   --seed "$SEED" \
   --wandb "$USE_WANDB" \
   $([ "$IGNORE_PRE_GENERATED" = true ] && echo "--ignore_pre_generated") \
+  $([ -n "$RESUME_RUN" ] && echo "--resume_run $RESUME_RUN") \
   $([ "$USE_MULTI_GPU" = true ] && echo "--device_map $DEVICE_MAP" || echo "--device_map") \
   $SUBSET $OUTPUT_DIR $IS_MODEL_ID
 

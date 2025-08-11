@@ -39,6 +39,7 @@ def eval_trained_dpo(
     base_seed=42,
     ignore_pre_generated=False,
     device_map=None,
+    resume_run=None,
 ):
     """
     Evaluate a trained DPO model on a test dataset by computing attributions.
@@ -55,6 +56,7 @@ def eval_trained_dpo(
         is_model_id: If True, model_path is treated as a HuggingFace model ID instead of a local path
         base_seed: Base seed for reproducible experiments, default is 42
         ignore_pre_generated: If True, ignore any pre-generated attributions in the dataset
+        resume_run: Optional name of a run to resume from
     """
     # Convert paths to Path objects if they're strings and not a model ID
     if not is_model_id:
@@ -67,6 +69,8 @@ def eval_trained_dpo(
     # Set up signal handler for graceful termination
     def signal_handler(sig, frame):
         print("\nReceived termination signal. Saving progress and exiting...")
+        # Add processed scenarios to progress data before saving
+        progress_data["processed_scenarios"] = list(processed_scenarios)
         save_progress(progress_file, progress_data)
         if use_wandb:
             wandb.finish()
@@ -113,9 +117,13 @@ def eval_trained_dpo(
     print(f"Output directory: {base_output_dir}")
 
     # Create a unique run name
-    timestamp = time.strftime("%y%m%d_%H%M%S")
-    pregen_signal = "no_pregen" if ignore_pre_generated else "with_pregen"
-    run_name = f"eval_{timestamp}_{dataset_name}_{attribution_method_name}_{pregen_signal}"
+    if resume_run:
+        run_name = resume_run
+        print(f"Resuming run: {run_name}")
+    else:
+        timestamp = time.strftime("%y%m%d_%H%M%S")
+        pregen_signal = "no_pregen" if ignore_pre_generated else "with_pregen"
+        run_name = f"eval_{timestamp}_{dataset_name}_{attribution_method_name}_{pregen_signal}"
 
     # Create output directories
     output_dir = base_output_dir / run_name
@@ -191,6 +199,19 @@ def eval_trained_dpo(
         "estimated_remaining_time": 0.0,
         "completion_percentage": 0.0,
     }
+
+    # Load existing progress if resuming
+    if resume_run and progress_file.exists():
+        print(f"Loading existing progress from {progress_file}")
+        try:
+            with open(progress_file, "r") as f:
+                existing_progress = json.load(f)
+                processed_scenarios = set(existing_progress.get("processed_scenarios", []))
+                progress_data.update(existing_progress)
+                print(f"Loaded {len(processed_scenarios)} already processed scenarios")
+        except Exception as e:
+            print(f"Error loading progress file: {e}")
+            print("Starting fresh...")
 
     # Initialize tracking variables
     success_sum = 0
@@ -304,6 +325,9 @@ def eval_trained_dpo(
             failed_scenarios = progress_data.get("failed_scenarios", [])
             progress_data = update_progress(progress_data, processed_scenarios, failed_scenarios)
 
+            # Add processed scenarios to progress data for resuming
+            progress_data["processed_scenarios"] = list(processed_scenarios)
+
             # Save the updated progress data
             save_progress(progress_file, progress_data)
 
@@ -322,6 +346,9 @@ def eval_trained_dpo(
             if "failed_scenarios" not in progress_data:
                 progress_data["failed_scenarios"] = []
             progress_data["failed_scenarios"].append(scenario_id)
+
+            # Add processed scenarios to progress data for resuming
+            progress_data["processed_scenarios"] = list(processed_scenarios)
             save_progress(progress_file, progress_data)
             continue
 
@@ -331,6 +358,8 @@ def eval_trained_dpo(
     print(f"Evaluation completed. Processed {len(processed_scenarios)} scenarios in {total_duration:.2f} seconds.")
     print(f"Average time per scenario: {total_duration / len(processed_scenarios):.2f} seconds.")
 
+    # Add processed scenarios to progress data for final save
+    progress_data["processed_scenarios"] = list(processed_scenarios)
     save_progress(progress_file, progress_data)
 
     # Print summary
@@ -412,6 +441,12 @@ if __name__ == "__main__":
         default=None,
         help="Device mapping for multi-GPU (auto, balanced, sequential, or specific mapping)",
     )
+    parser.add_argument(
+        "--resume_run",
+        type=str,
+        default=None,
+        help="Name of a previous run to resume from",
+    )
 
     args = parser.parse_args()
 
@@ -431,4 +466,5 @@ if __name__ == "__main__":
         base_seed=args.seed,
         ignore_pre_generated=args.ignore_pre_generated,
         device_map=args.device_map,
+        resume_run=args.resume_run,
     )

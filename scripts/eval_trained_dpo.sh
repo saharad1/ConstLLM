@@ -5,7 +5,7 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=3
 
 # Out of domain datasets:
 # codah,llama3.1: data/collection_data/codah/unsloth_Meta-Llama-3.1-8B-Instruct/codah_20250415_125210_LIME_llama3.1/test_278.jsonl
@@ -20,9 +20,10 @@ export CUDA_VISIBLE_DEVICES=2
 # arc_easy,llama3.2: models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model
 
 # Default paths - adjust these as needed
-MODEL_PATH="models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_125605_lr9.50e-06_beta8.37/best_model"
-DATASET_PATH="data/collection_data/arc_easy/meta-llama_Llama-3.2-3B-Instruct/arc_easy_20250404_115258_LIG_llama3.2/test_521.jsonl"
+MODEL_PATH="models/ecqa/Llama-3.2-3B-Instruct/ecqa_250808_050834_lr9.56e-06_beta9.93/best_model"
+DATASET_PATH="data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/test_1089.jsonl"
 OUTPUT_DIR=""
+RESUME_RUN=""
 
 # Better detection of model ID vs local path
 if [[ "$MODEL_PATH" =~ ^[./] || "$MODEL_PATH" =~ ^/ || 
@@ -112,9 +113,9 @@ while [[ $# -gt 0 ]]; do
       IS_MODEL_ID=""  # Force treating as local path even if it looks like a model ID
       shift
       ;;
-    --ignore_pre_generated)
-      IGNORE_PRE_GENERATED=true
-      shift
+    --resume_run|-r)
+      RESUME_RUN="$2"
+      shift 2
       ;;
     *)
       echo "Unknown option: $1"
@@ -130,6 +131,9 @@ echo "WandB logging: $([ "$USE_WANDB" = true ] && echo "enabled" || echo "disabl
 echo "Model type: $([ -n "$IS_MODEL_ID" ] && echo "HuggingFace model ID" || echo "Local model path")"
 echo "Base seed: $SEED"
 echo "Pre-generated responses: $([ "$IGNORE_PRE_GENERATED" = true ] && echo "IGNORED" || echo "USED")"
+if [[ -n "$RESUME_RUN" ]]; then
+  echo "Resuming run: $RESUME_RUN"
+fi
 
 # Set WANDB_MODE to offline/online
 export WANDB_MODE=online
@@ -144,6 +148,7 @@ python -m src.test_evaluations.eval_trained_dpo \
   --seed "$SEED" \
   --wandb "$USE_WANDB" \
   $([ "$IGNORE_PRE_GENERATED" = true ] && echo "--ignore_pre_generated") \
+  $([ -n "$RESUME_RUN" ] && echo "--resume_run $RESUME_RUN") \
   $SUBSET $OUTPUT_DIR $IS_MODEL_ID
 
 echo "Evaluation completed!"

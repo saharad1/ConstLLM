@@ -13,7 +13,7 @@ set -e
 
 # GPU ID to use
 # Set the GPU to use
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=2
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
