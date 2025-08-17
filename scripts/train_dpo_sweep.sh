@@ -18,12 +18,12 @@ export CUDA_VISIBLE_DEVICES=2
 # meta-llama/Llama-3.2-3B-Instruct
 
 # Path to the dataset
-DATASET_PATH="data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2"
+DATASET_PATH="data/collection_data/ecqa/meta-llama_Meta-Llama-3.1-8B-Instruct/ecqa_20250521_120325_LIG_llama3.1"
 
 # Run the DPO training sweep script with command-line arguments
 python -m src.pipeline_dpo.train_dpo_unsloth_sweep \
   --dataset_path "$DATASET_PATH" \
-  --model_id "meta-llama/Llama-3.2-3B-Instruct" \
+  --model_id "meta-llama/Meta-Llama-3.1-8B-Instruct" \
   --dataset_name "ecqa" \
   --similarity_metric "spearman" \
   --diff_threshold_train 0 \

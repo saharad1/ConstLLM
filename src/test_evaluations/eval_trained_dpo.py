@@ -184,6 +184,8 @@ def eval_trained_dpo(
     # Initialize progress tracking
     processed_scenarios = set()
     progress_data = {
+        "model_path": str(model_path),
+        "dataset_path": str(dataset_path),
         "total_scenarios": len(dataset),
         "processed_count": 0,
         "failed_scenarios": [],

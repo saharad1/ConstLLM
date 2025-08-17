@@ -5,7 +5,7 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES=3
+export CUDA_VISIBLE_DEVICES=1
 
 # Out of domain datasets:
 # codah,llama3.1: data/collection_data/codah/unsloth_Meta-Llama-3.1-8B-Instruct/codah_20250415_125210_LIME_llama3.1/test_278.jsonl

@@ -132,7 +132,7 @@ def save_progress(progress_file, progress_data):
         progress_data: Dictionary containing progress information
     """
     with open(progress_file, "w") as f:
-        json.dump(progress_data, f)
+        json.dump(progress_data, f, indent=2, separators=(",", ": "))
 
 
 def update_progress(progress_data, processed_scenarios, failed_scenarios=None):

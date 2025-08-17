@@ -5,8 +5,8 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Default values
-INPUT_FILE="data/collection_data/arc_easy/unsloth_Meta-Llama-3.1-8B-Instruct/arc_easy_20250424_152104_LIME_llama3.1/arc_easy_20250424_152104_LIME_llama3.1.jsonl"
-SPLIT_FILE="data/dataset_splits/arc_easy_split_indices.json"
+INPUT_FILE="data/collection_data/ecqa/meta-llama_Meta-Llama-3.1-8B-Instruct/ecqa_20250521_120325_LIG_llama3.1/ecqa_20250521_120325_LIG_llama3.1.jsonl"
+SPLIT_FILE="data/dataset_splits/ecqa_split_indices.json"
 KEEP_CLEANED=false
 
 # Parse command line arguments
