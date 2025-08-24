@@ -5,7 +5,7 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=2
 
 # Out of domain datasets:
 # codah,llama3.1: data/collection_data/codah/unsloth_Meta-Llama-3.1-8B-Instruct/codah_20250415_125210_LIME_llama3.1/test_278.jsonl
@@ -20,10 +20,12 @@ export CUDA_VISIBLE_DEVICES=1
 # arc_easy,llama3.2: models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model
 
 # Default paths - adjust these as needed
-MODEL_PATH="models/ecqa/Llama-3.2-3B-Instruct/ecqa_250808_050834_lr9.56e-06_beta9.93/best_model"
-DATASET_PATH="data/collection_data/ecqa/meta-llama_Llama-3.2-3B-Instruct/ecqa_20250403_133655_LIG_llama3.2/test_1089.jsonl"
+MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250818_054203_lr8.96e-06_beta7.04/best_model"
+DATASET_PATH="data/collection_data/ecqa/meta-llama_Meta-Llama-3.1-8B-Instruct/ecqa_20250521_120325_LIG_llama3.1/test_1089.jsonl"
 OUTPUT_DIR=""
 RESUME_RUN=""
+
+IGNORE_PRE_GENERATED=false
 
 # Better detection of model ID vs local path
 if [[ "$MODEL_PATH" =~ ^[./] || "$MODEL_PATH" =~ ^/ || 
@@ -47,7 +49,7 @@ NUM_DEC_EXP=5
 TEMPERATURE=0.7
 SUBSET=""
 SEED=42
-IGNORE_PRE_GENERATED=false
+
 
 # Default is to disable wandb (set to false)
 USE_WANDB=true

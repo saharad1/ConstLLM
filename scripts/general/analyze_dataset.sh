@@ -11,8 +11,10 @@ conda activate ConstLLM
 # Exit on error
 set -e
 
+# data/eval_results/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_195416_lr3.84e-06_beta9.20/eval_250817_134151_test_521_LIG_with_pregen/eval_250817_134151_test_521_LIG_with_pregen_results.jsonl
+# data/eval_results/arc_easy/huggingface/Llama-3.2-3B-Instruct/eval_250818_090347_test_521_LIG_with_pregen/eval_250818_090347_test_521_LIG_with_pregen_results.jsonl
 # Default values
-DATASET_PATH="data/collection_data/arc_easy/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_easy_20250527_100818_LIG_llama3.1/test_521.jsonl"
+DATASET_PATH="data/eval_results/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_195416_lr3.84e-06_beta9.20/eval_250817_134151_test_521_LIG_with_pregen/eval_250817_134151_test_521_LIG_with_pregen_results.jsonl"
 
 # Display help message
 function show_help {
