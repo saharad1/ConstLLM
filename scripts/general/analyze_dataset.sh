@@ -14,7 +14,7 @@ set -e
 # data/eval_results/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_195416_lr3.84e-06_beta9.20/eval_250817_134151_test_521_LIG_with_pregen/eval_250817_134151_test_521_LIG_with_pregen_results.jsonl
 # data/eval_results/arc_easy/huggingface/Llama-3.2-3B-Instruct/eval_250818_090347_test_521_LIG_with_pregen/eval_250818_090347_test_521_LIG_with_pregen_results.jsonl
 # Default values
-DATASET_PATH="data/eval_results/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_195416_lr3.84e-06_beta9.20/eval_250817_134151_test_521_LIG_with_pregen/eval_250817_134151_test_521_LIG_with_pregen_results.jsonl"
+DATASET_PATH="data/collection_data/ecqa/meta-llama_Meta-Llama-3.1-8B-Instruct/ecqa_20250521_120325_LIG_llama3.1/ecqa_20250521_120325_LIG_llama3.1_dedup.jsonl"
 
 # Display help message
 function show_help {
@@ -60,6 +60,13 @@ if [[ ! -f "$DATASET_PATH" ]]; then
     exit 1
 fi
 
+# Check if we're in the correct directory (should have src/ directory)
+if [[ ! -d "src" ]]; then
+    echo "Error: Please run this script from the project root directory (where src/ directory is located)."
+    echo "Current directory: $(pwd)"
+    exit 1
+fi
+
 # Activate environment if not already activated
 if [[ -z "$CONDA_DEFAULT_ENV" || "$CONDA_DEFAULT_ENV" != "ConstLLM" ]]; then
     echo "Activating ConstLLM conda environment..."
@@ -71,8 +78,13 @@ fi
 TEMP_SCRIPT="/tmp/temp_analysis_$$.py"
 cat > "$TEMP_SCRIPT" << 'EOF'
 import sys
-sys.path.append('src')
-from analyze_data.analyze_generated_dataset import analyze_dataset, print_metrics
+import os
+
+# Get the project root directory (assuming script is run from project root)
+project_root = os.getcwd()
+sys.path.insert(0, project_root)
+
+from src.analyze_data.analyze_generated_dataset import analyze_dataset, print_metrics
 
 # Analyze dataset
 print('Analyzing dataset: DATASET_PATH_PLACEHOLDER')

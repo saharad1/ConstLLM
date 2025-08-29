@@ -20,12 +20,12 @@ export CUDA_VISIBLE_DEVICES=2
 # arc_easy,llama3.2: models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model
 
 # Default paths - adjust these as needed
-MODEL_PATH="models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250818_054203_lr8.96e-06_beta7.04/best_model"
-DATASET_PATH="data/collection_data/ecqa/meta-llama_Meta-Llama-3.1-8B-Instruct/ecqa_20250521_120325_LIG_llama3.1/test_1089.jsonl"
+MODEL_PATH="models/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250806_181728_lr6.86e-06_beta8.41/best_model"
+DATASET_PATH="data/collection_data/arc_easy/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_easy_20250527_100818_LIG_llama3.1/test_521.jsonl"
 OUTPUT_DIR=""
 RESUME_RUN=""
 
-IGNORE_PRE_GENERATED=false
+IGNORE_PRE_GENERATED=true
 
 # Better detection of model ID vs local path
 if [[ "$MODEL_PATH" =~ ^[./] || "$MODEL_PATH" =~ ^/ || 
