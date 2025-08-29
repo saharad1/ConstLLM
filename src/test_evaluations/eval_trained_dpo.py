@@ -13,10 +13,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import wandb
 from datasets import load_dataset
 from tqdm import tqdm
 
-import wandb
 from src.collect_data.attribution_config import get_attribution_methods_params
 from src.collect_data.collection_metrics import calculate_metrics
 from src.collect_data.dataset_loader import load_and_prepare_dataset
@@ -220,6 +220,39 @@ def eval_trained_dpo(
     spearman_sums = {"best": 0, "worst": 0, "median": 0}
     cosine_sums = {"best": 0, "worst": 0, "median": 0}
 
+    # Filter dataset to only include scenarios that need processing
+    def get_scenario_id(scenario_item):
+        if hasattr(scenario_item, "scenario_id"):
+            return scenario_item.scenario_id
+        elif isinstance(scenario_item, dict) and "scenario_id" in scenario_item:
+            return scenario_item["scenario_id"]
+        else:
+            return None
+
+    # Create list of scenarios that need processing
+    scenarios_to_process = []
+    scenario_id_to_original_index = {}
+
+    for idx, scenario_item in enumerate(dataset):
+        scenario_id = get_scenario_id(scenario_item)
+        if scenario_id is None:
+            scenario_id = f"scenario_{idx + 1}"
+            # Set the scenario_id in the item if it's a dict
+            if isinstance(scenario_item, dict):
+                scenario_item["scenario_id"] = scenario_id
+
+        if scenario_id not in processed_scenarios:
+            scenarios_to_process.append(scenario_item)
+            scenario_id_to_original_index[scenario_id] = idx + 1
+
+    print(f"Total scenarios: {len(dataset)}")
+    print(f"Already processed: {len(processed_scenarios)}")
+    print(f"Remaining to process: {len(scenarios_to_process)}")
+
+    if len(scenarios_to_process) == 0:
+        print("All scenarios already processed!")
+        return output_dir
+
     # Set up attribution methods
     methods_params_decision, methods_params_explanation = get_attribution_methods_params(attribution_method_name)
 
@@ -239,20 +272,22 @@ def eval_trained_dpo(
     generation_seeds = [base_seed + i for i in range(num_dec_exp)]
     print(f"Generated seeds for explanations: {generation_seeds}")
 
-    # Process scenarios
+    # Process scenarios - now only processing remaining scenarios
     start_time_total = time.time()
     total_time_sum = 0
-    for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
-        # Get scenario ID (ensure it exists)
-        if hasattr(scenario_item, "scenario_id"):
-            scenario_id = scenario_item.scenario_id
-        elif isinstance(scenario_item, dict) and "scenario_id" in scenario_item:
-            scenario_id = scenario_item["scenario_id"]
-        else:
-            scenario_id = f"scenario_{iteration}"
 
-        if scenario_id in processed_scenarios:
-            continue
+    # Create progress bar for remaining scenarios only
+    pbar = tqdm(scenarios_to_process, desc="Processing remaining scenarios")
+
+    for processed_count, scenario_item in enumerate(pbar, 1):
+        # Get scenario ID
+        scenario_id = get_scenario_id(scenario_item)
+        if scenario_id is None:
+            scenario_id = f"scenario_{scenario_id_to_original_index.get(scenario_id, processed_count)}"
+
+        # Update progress bar description with current scenario ID
+        original_index = scenario_id_to_original_index.get(scenario_id, processed_count)
+        pbar.set_description(f"Processing scenario {scenario_id} ({original_index}/{len(dataset)})")
 
         try:
             # Track time for this specific scenario (individual timing)
@@ -297,10 +332,12 @@ def eval_trained_dpo(
             total_time_sum += scenario_duration  # Update total time sum
 
             # Calculate metrics, now including timing arguments
+            # Use total processed count (including previously processed)
+            total_processed = len(processed_scenarios)
             metrics, success_sum = calculate_metrics(
                 scenario_res=scenario_res,
                 success_sum=success_sum,
-                iteration=iteration,
+                iteration=total_processed,  # Use total processed count
                 spearman_sums=spearman_sums,
                 cosine_sums=cosine_sums,
                 scenario_time=scenario_duration,  # Pass scenario duration
@@ -313,13 +350,13 @@ def eval_trained_dpo(
             # Update progress data with the latest metrics
             progress_data.update(
                 {
-                    "success_rate": (success_sum / iteration) * 100,
-                    "avg_spearman_best": spearman_sums["best"] / iteration,
-                    "avg_spearman_median": spearman_sums["median"] / iteration,
-                    "avg_spearman_worst": spearman_sums["worst"] / iteration,
-                    "avg_cosine_best": cosine_sums["best"] / iteration,
-                    "avg_cosine_median": cosine_sums["median"] / iteration,
-                    "avg_cosine_worst": cosine_sums["worst"] / iteration,
+                    "success_rate": (success_sum / total_processed) * 100,
+                    "avg_spearman_best": spearman_sums["best"] / total_processed,
+                    "avg_spearman_median": spearman_sums["median"] / total_processed,
+                    "avg_spearman_worst": spearman_sums["worst"] / total_processed,
+                    "avg_cosine_best": cosine_sums["best"] / total_processed,
+                    "avg_cosine_median": cosine_sums["median"] / total_processed,
+                    "avg_cosine_worst": cosine_sums["worst"] / total_processed,
                 }
             )
 
@@ -342,7 +379,7 @@ def eval_trained_dpo(
             # Log error to file
             error_file = output_dir / "errors.log"
             with open(error_file, "a") as f:
-                f.write(f"Scenario {scenario_id} (iteration {iteration}): {str(e)}\n")
+                f.write(f"Scenario {scenario_id} (original index {original_index}): {str(e)}\n")
 
             # Add to failed scenarios in progress data
             if "failed_scenarios" not in progress_data:
@@ -353,6 +390,9 @@ def eval_trained_dpo(
             progress_data["processed_scenarios"] = list(processed_scenarios)
             save_progress(progress_file, progress_data)
             continue
+
+    # Close progress bar
+    pbar.close()
 
     # Finalize
     end_time_total = time.time()

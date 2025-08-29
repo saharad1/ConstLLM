@@ -7,7 +7,7 @@ conda activate ConstLLM
 # GPU Configuration - Modify these based on your setup
 # For single GPU: export CUDA_VISIBLE_DEVICES=0
 # For multiple GPUs: export CUDA_VISIBLE_DEVICES=0,1
-export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 # Out of domain datasets:
 # codah,llama3.1: data/collection_data/codah/unsloth_Meta-Llama-3.1-8B-Instruct/codah_20250415_125210_LIME_llama3.1/test_278.jsonl
@@ -22,12 +22,12 @@ export CUDA_VISIBLE_DEVICES=0,1
 # arc_easy,llama3.2: models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model
 
 # Default paths - adjust these as needed
-MODEL_PATH="models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_125605_lr9.50e-06_beta8.37/best_model"
-DATASET_PATH="data/collection_data/arc_easy/meta-llama_Llama-3.2-3B-Instruct/arc_easy_20250404_115258_LIG_llama3.2/test_521.jsonl"
+MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
+DATASET_PATH="data/collection_data/ecqa/meta-llama_Meta-Llama-3.1-8B-Instruct/ecqa_20250521_120325_LIG_llama3.1/test_1089.jsonl"
 OUTPUT_DIR=""
 RESUME_RUN=""
 
-# GPU Configuration
+# GPU Configuration``
 USE_MULTI_GPU=true  # Enable multi-GPU by default
 DEVICE_MAP="auto"  # Options: None (single GPU), "auto", "balanced", "sequential", "cuda:0", "cuda:0,cuda:1"
 
