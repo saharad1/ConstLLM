@@ -98,16 +98,27 @@ class LLMAnalyzer:
         # Tokenize and generate
         inputs = self.tokenizer(input_text, return_tensors="pt", padding=True, truncation=True).to(self.model.device)
         with torch.no_grad():
-            output_ids = self.model.generate(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                max_new_tokens=400,
-                num_return_sequences=1,
-                do_sample=True,
-                temperature=self.temperature,
-                top_p=0.9,
-                pad_token_id=self.tokenizer.pad_token_id,
-            )
+            # Handle temperature=0.0 for deterministic generation
+            if self.temperature == 0.0:
+                output_ids = self.model.generate(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                    max_new_tokens=400,
+                    num_return_sequences=1,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                )
+            else:
+                output_ids = self.model.generate(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                    max_new_tokens=400,
+                    num_return_sequences=1,
+                    do_sample=True,
+                    temperature=self.temperature,
+                    top_p=0.9,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                )
         generated_text = self.tokenizer.decode(output_ids[0][inputs["input_ids"].shape[-1] :], skip_special_tokens=True)
 
         return generated_text
