@@ -30,7 +30,7 @@ TRAINED_LIME_MODELS=(
     "models/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250510_194800_lr4.65e-06_beta5.64/checkpoint-448"
     "models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model"
     "models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250508_224902_lr4.21e-06_beta5.13/best_model"
-    "models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model"
+    "models/ecqa/Llama-3.2-3B-Instruct/ecqa_250513_133025_lr9.55e-06_beta8.44/best_model"
 )
 
 # Trained LIG models to evaluate
@@ -41,9 +41,12 @@ TRAINED_LIG_MODELS=(
     "models/ecqa/Llama-3.2-3B-Instruct/ecqa_250808_050834_lr9.56e-06_beta9.93/best_model"
 )
 
+# single_model="models/ecqa/Llama-3.2-3B-Instruct/ecqa_250513_133025_lr9.55e-06_beta8.44/best_model"
+
 # Combine all models by default
 ALL_MODELS=("${DEFAULT_MODELS[@]}" "${TRAINED_LIG_MODELS[@]}" "${TRAINED_LIME_MODELS[@]}")
 
+# MODELS=("${single_model}")
 MODELS=("${ALL_MODELS[@]}")  # Array of models to evaluate
 TASK="mc"  # Options: mc, generation, both (start with 'mc' for simplicity)
 TEMPERATURE=0.0  # Temperature for YOUR model (0.0 = deterministic)

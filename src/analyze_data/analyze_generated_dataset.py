@@ -12,6 +12,7 @@ from src.analyze_data.analysis_utils import (
 )
 from src.collect_data.comp_similarity_scores import (
     calculate_cosine_similarity,
+    calculate_jaccard_similarities,
     calculate_lma,
     calculate_spearman_correlation,
 )
@@ -34,6 +35,8 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
     spearman_scores = []
     cosine_scores = []
     lma_scores = []
+    jaccard_10_scores = []
+    jaccard_20_scores = []
 
     # Dataset-level statistics
     dataset_spearman_worst = []
@@ -48,6 +51,14 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
     dataset_lma_median = []
     dataset_lma_best = []
     dataset_lma_mean = []
+    dataset_jaccard_10_worst = []
+    dataset_jaccard_10_median = []
+    dataset_jaccard_10_best = []
+    dataset_jaccard_10_mean = []
+    dataset_jaccard_20_worst = []
+    dataset_jaccard_20_median = []
+    dataset_jaccard_20_best = []
+    dataset_jaccard_20_mean = []
 
     # Separate lists for correct and incorrect model decisions
     spearman_worst_right = []
@@ -68,6 +79,18 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
     lma_worst_wrong = []
     lma_best_wrong = []
     lma_mean_wrong = []
+    jaccard_10_worst_right = []
+    jaccard_10_best_right = []
+    jaccard_10_mean_right = []
+    jaccard_10_worst_wrong = []
+    jaccard_10_best_wrong = []
+    jaccard_10_mean_wrong = []
+    jaccard_20_worst_right = []
+    jaccard_20_best_right = []
+    jaccard_20_mean_right = []
+    jaccard_20_worst_wrong = []
+    jaccard_20_best_wrong = []
+    jaccard_20_mean_wrong = []
 
     # Read and process the dataset
     with open(file_path, "r") as f:
@@ -92,6 +115,8 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
                     scenario_spearman = []
                     scenario_cosine = []
                     scenario_lma = []
+                    scenario_jaccard_10 = []
+                    scenario_jaccard_20 = []
 
                     for expl_attr in explanation_attrs:
                         # Calculate Spearman correlation
@@ -111,6 +136,15 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
                         if lma_score is not None:
                             scenario_lma.append(lma_score)
                             lma_scores.append(lma_score)
+
+                        # Calculate Jaccard similarities for both @10 and @20
+                        jaccard_scores = calculate_jaccard_similarities(decision_attr, expl_attr)
+                        if jaccard_scores["jaccard_10"] is not None:
+                            scenario_jaccard_10.append(jaccard_scores["jaccard_10"])
+                            jaccard_10_scores.append(jaccard_scores["jaccard_10"])
+                        if jaccard_scores["jaccard_20"] is not None:
+                            scenario_jaccard_20.append(jaccard_scores["jaccard_20"])
+                            jaccard_20_scores.append(jaccard_scores["jaccard_20"])
 
                     # Add per-scenario statistics
                     if scenario_spearman:
@@ -157,6 +191,36 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
                             lma_worst_wrong.append(min(scenario_lma))
                             lma_best_wrong.append(max(scenario_lma))
                             lma_mean_wrong.append(np.mean(scenario_lma))
+
+                    if scenario_jaccard_10:
+                        dataset_jaccard_10_worst.append(min(scenario_jaccard_10))
+                        dataset_jaccard_10_median.append(np.median(scenario_jaccard_10))
+                        dataset_jaccard_10_best.append(max(scenario_jaccard_10))
+                        dataset_jaccard_10_mean.append(np.mean(scenario_jaccard_10))
+                        # Split by correctness
+                        if is_correct:
+                            jaccard_10_worst_right.append(min(scenario_jaccard_10))
+                            jaccard_10_best_right.append(max(scenario_jaccard_10))
+                            jaccard_10_mean_right.append(np.mean(scenario_jaccard_10))
+                        else:
+                            jaccard_10_worst_wrong.append(min(scenario_jaccard_10))
+                            jaccard_10_best_wrong.append(max(scenario_jaccard_10))
+                            jaccard_10_mean_wrong.append(np.mean(scenario_jaccard_10))
+
+                    if scenario_jaccard_20:
+                        dataset_jaccard_20_worst.append(min(scenario_jaccard_20))
+                        dataset_jaccard_20_median.append(np.median(scenario_jaccard_20))
+                        dataset_jaccard_20_best.append(max(scenario_jaccard_20))
+                        dataset_jaccard_20_mean.append(np.mean(scenario_jaccard_20))
+                        # Split by correctness
+                        if is_correct:
+                            jaccard_20_worst_right.append(min(scenario_jaccard_20))
+                            jaccard_20_best_right.append(max(scenario_jaccard_20))
+                            jaccard_20_mean_right.append(np.mean(scenario_jaccard_20))
+                        else:
+                            jaccard_20_worst_wrong.append(min(scenario_jaccard_20))
+                            jaccard_20_best_wrong.append(max(scenario_jaccard_20))
+                            jaccard_20_mean_wrong.append(np.mean(scenario_jaccard_20))
 
             except ValueError as e:
                 print(f"Error on line {line_num}: {e}")
@@ -269,6 +333,84 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
                 "sem": np.std(dataset_lma_mean) / np.sqrt(len(dataset_lma_mean)) if dataset_lma_mean else 0,
             },
         },
+        # Jaccard@10 similarity statistics
+        "jaccard_10": {
+            "worst": {
+                "mean": np.mean(dataset_jaccard_10_worst) if dataset_jaccard_10_worst else 0,
+                "median": np.median(dataset_jaccard_10_worst) if dataset_jaccard_10_worst else 0,
+                "min": min(dataset_jaccard_10_worst) if dataset_jaccard_10_worst else 0,
+                "max": max(dataset_jaccard_10_worst) if dataset_jaccard_10_worst else 0,
+                "std": np.std(dataset_jaccard_10_worst) if dataset_jaccard_10_worst else 0,
+                "sem": (
+                    np.std(dataset_jaccard_10_worst) / np.sqrt(len(dataset_jaccard_10_worst))
+                    if dataset_jaccard_10_worst
+                    else 0
+                ),
+            },
+            "best": {
+                "mean": np.mean(dataset_jaccard_10_best) if dataset_jaccard_10_best else 0,
+                "median": np.median(dataset_jaccard_10_best) if dataset_jaccard_10_best else 0,
+                "min": min(dataset_jaccard_10_best) if dataset_jaccard_10_best else 0,
+                "max": max(dataset_jaccard_10_best) if dataset_jaccard_10_best else 0,
+                "std": np.std(dataset_jaccard_10_best) if dataset_jaccard_10_best else 0,
+                "sem": (
+                    np.std(dataset_jaccard_10_best) / np.sqrt(len(dataset_jaccard_10_best))
+                    if dataset_jaccard_10_best
+                    else 0
+                ),
+            },
+            "mean": {
+                "mean": np.mean(dataset_jaccard_10_mean) if dataset_jaccard_10_mean else 0,
+                "median": np.median(dataset_jaccard_10_mean) if dataset_jaccard_10_mean else 0,
+                "min": min(dataset_jaccard_10_mean) if dataset_jaccard_10_mean else 0,
+                "max": max(dataset_jaccard_10_mean) if dataset_jaccard_10_mean else 0,
+                "std": np.std(dataset_jaccard_10_mean) if dataset_jaccard_10_mean else 0,
+                "sem": (
+                    np.std(dataset_jaccard_10_mean) / np.sqrt(len(dataset_jaccard_10_mean))
+                    if dataset_jaccard_10_mean
+                    else 0
+                ),
+            },
+        },
+        # Jaccard@20 similarity statistics
+        "jaccard_20": {
+            "worst": {
+                "mean": np.mean(dataset_jaccard_20_worst) if dataset_jaccard_20_worst else 0,
+                "median": np.median(dataset_jaccard_20_worst) if dataset_jaccard_20_worst else 0,
+                "min": min(dataset_jaccard_20_worst) if dataset_jaccard_20_worst else 0,
+                "max": max(dataset_jaccard_20_worst) if dataset_jaccard_20_worst else 0,
+                "std": np.std(dataset_jaccard_20_worst) if dataset_jaccard_20_worst else 0,
+                "sem": (
+                    np.std(dataset_jaccard_20_worst) / np.sqrt(len(dataset_jaccard_20_worst))
+                    if dataset_jaccard_20_worst
+                    else 0
+                ),
+            },
+            "best": {
+                "mean": np.mean(dataset_jaccard_20_best) if dataset_jaccard_20_best else 0,
+                "median": np.median(dataset_jaccard_20_best) if dataset_jaccard_20_best else 0,
+                "min": min(dataset_jaccard_20_best) if dataset_jaccard_20_best else 0,
+                "max": max(dataset_jaccard_20_best) if dataset_jaccard_20_best else 0,
+                "std": np.std(dataset_jaccard_20_best) if dataset_jaccard_20_best else 0,
+                "sem": (
+                    np.std(dataset_jaccard_20_best) / np.sqrt(len(dataset_jaccard_20_best))
+                    if dataset_jaccard_20_best
+                    else 0
+                ),
+            },
+            "mean": {
+                "mean": np.mean(dataset_jaccard_20_mean) if dataset_jaccard_20_mean else 0,
+                "median": np.median(dataset_jaccard_20_mean) if dataset_jaccard_20_mean else 0,
+                "min": min(dataset_jaccard_20_mean) if dataset_jaccard_20_mean else 0,
+                "max": max(dataset_jaccard_20_mean) if dataset_jaccard_20_mean else 0,
+                "std": np.std(dataset_jaccard_20_mean) if dataset_jaccard_20_mean else 0,
+                "sem": (
+                    np.std(dataset_jaccard_20_mean) / np.sqrt(len(dataset_jaccard_20_mean))
+                    if dataset_jaccard_20_mean
+                    else 0
+                ),
+            },
+        },
         # Add new metrics for correct/incorrect cases
         "cosine_right": {
             "worst_mean": np.mean(cosine_worst_right) if cosine_worst_right else 0,
@@ -340,6 +482,74 @@ def analyze_dataset(file_path: str) -> Dict[str, Any]:
             "best_std": np.std(lma_best_wrong) if lma_best_wrong else 0,
             "best_sem": np.std(lma_best_wrong) / np.sqrt(len(lma_best_wrong)) if lma_best_wrong else 0,
         },
+        "jaccard_10_right": {
+            "worst_mean": np.mean(jaccard_10_worst_right) if jaccard_10_worst_right else 0,
+            "worst_std": np.std(jaccard_10_worst_right) if jaccard_10_worst_right else 0,
+            "worst_sem": (
+                np.std(jaccard_10_worst_right) / np.sqrt(len(jaccard_10_worst_right)) if jaccard_10_worst_right else 0
+            ),
+            "mean_mean": np.mean(jaccard_10_mean_right) if jaccard_10_mean_right else 0,
+            "mean_std": np.std(jaccard_10_mean_right) if jaccard_10_mean_right else 0,
+            "mean_sem": (
+                np.std(jaccard_10_mean_right) / np.sqrt(len(jaccard_10_mean_right)) if jaccard_10_mean_right else 0
+            ),
+            "best_mean": np.mean(jaccard_10_best_right) if jaccard_10_best_right else 0,
+            "best_std": np.std(jaccard_10_best_right) if jaccard_10_best_right else 0,
+            "best_sem": (
+                np.std(jaccard_10_best_right) / np.sqrt(len(jaccard_10_best_right)) if jaccard_10_best_right else 0
+            ),
+        },
+        "jaccard_10_wrong": {
+            "worst_mean": np.mean(jaccard_10_worst_wrong) if jaccard_10_worst_wrong else 0,
+            "worst_std": np.std(jaccard_10_worst_wrong) if jaccard_10_worst_wrong else 0,
+            "worst_sem": (
+                np.std(jaccard_10_worst_wrong) / np.sqrt(len(jaccard_10_worst_wrong)) if jaccard_10_worst_wrong else 0
+            ),
+            "mean_mean": np.mean(jaccard_10_mean_wrong) if jaccard_10_mean_wrong else 0,
+            "mean_std": np.std(jaccard_10_mean_wrong) if jaccard_10_mean_wrong else 0,
+            "mean_sem": (
+                np.std(jaccard_10_mean_wrong) / np.sqrt(len(jaccard_10_mean_wrong)) if jaccard_10_mean_wrong else 0
+            ),
+            "best_mean": np.mean(jaccard_10_best_wrong) if jaccard_10_best_wrong else 0,
+            "best_std": np.std(jaccard_10_best_wrong) if jaccard_10_best_wrong else 0,
+            "best_sem": (
+                np.std(jaccard_10_best_wrong) / np.sqrt(len(jaccard_10_best_wrong)) if jaccard_10_best_wrong else 0
+            ),
+        },
+        "jaccard_20_right": {
+            "worst_mean": np.mean(jaccard_20_worst_right) if jaccard_20_worst_right else 0,
+            "worst_std": np.std(jaccard_20_worst_right) if jaccard_20_worst_right else 0,
+            "worst_sem": (
+                np.std(jaccard_20_worst_right) / np.sqrt(len(jaccard_20_worst_right)) if jaccard_20_worst_right else 0
+            ),
+            "mean_mean": np.mean(jaccard_20_mean_right) if jaccard_20_mean_right else 0,
+            "mean_std": np.std(jaccard_20_mean_right) if jaccard_20_mean_right else 0,
+            "mean_sem": (
+                np.std(jaccard_20_mean_right) / np.sqrt(len(jaccard_20_mean_right)) if jaccard_20_mean_right else 0
+            ),
+            "best_mean": np.mean(jaccard_20_best_right) if jaccard_20_best_right else 0,
+            "best_std": np.std(jaccard_20_best_right) if jaccard_20_best_right else 0,
+            "best_sem": (
+                np.std(jaccard_20_best_right) / np.sqrt(len(jaccard_20_best_right)) if jaccard_20_best_right else 0
+            ),
+        },
+        "jaccard_20_wrong": {
+            "worst_mean": np.mean(jaccard_20_worst_wrong) if jaccard_20_worst_wrong else 0,
+            "worst_std": np.std(jaccard_20_worst_wrong) if jaccard_20_worst_wrong else 0,
+            "worst_sem": (
+                np.std(jaccard_20_worst_wrong) / np.sqrt(len(jaccard_20_worst_wrong)) if jaccard_20_worst_wrong else 0
+            ),
+            "mean_mean": np.mean(jaccard_20_mean_wrong) if jaccard_20_mean_wrong else 0,
+            "mean_std": np.std(jaccard_20_mean_wrong) if jaccard_20_mean_wrong else 0,
+            "mean_sem": (
+                np.std(jaccard_20_mean_wrong) / np.sqrt(len(jaccard_20_mean_wrong)) if jaccard_20_mean_wrong else 0
+            ),
+            "best_mean": np.mean(jaccard_20_best_wrong) if jaccard_20_best_wrong else 0,
+            "best_std": np.std(jaccard_20_best_wrong) if jaccard_20_best_wrong else 0,
+            "best_sem": (
+                np.std(jaccard_20_best_wrong) / np.sqrt(len(jaccard_20_best_wrong)) if jaccard_20_best_wrong else 0
+            ),
+        },
     }
 
     return metrics
@@ -366,6 +576,26 @@ def print_metrics(metrics: Dict[str, Any]) -> None:
         # for category in ["mean"]:
         print(f"\n{category.title()} values:")
         stats = metrics["spearman"][category]
+        print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
+        # print(f"  Median: {stats['median']:.4f}")
+        # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+        # print(f"  Std Dev: {stats['std']:.4f}")
+
+    print("\n=== Jaccard@10 Similarity Statistics ===")
+    for category in ["worst", "mean", "best"]:
+        # for category in ["mean"]:
+        print(f"\n{category.title()} values:")
+        stats = metrics["jaccard_10"][category]
+        print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
+        # print(f"  Median: {stats['median']:.4f}")
+        # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+        # print(f"  Std Dev: {stats['std']:.4f}")
+
+    print("\n=== Jaccard@20 Similarity Statistics ===")
+    for category in ["worst", "mean", "best"]:
+        # for category in ["mean"]:
+        print(f"\n{category.title()} values:")
+        stats = metrics["jaccard_20"][category]
         print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
         # print(f"  Median: {stats['median']:.4f}")
         # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")

@@ -27,6 +27,29 @@ def calculate_lma(
     return _calculate_lma(decision_attributions, explanation_attributions)["lma_score"]
 
 
+def calculate_jaccard_similarity(
+    decision_attributions: List[Tuple[str, float]],
+    explanation_attributions: List[Tuple[str, float]],
+    top_k: int = 10,
+):
+    return _calculate_jaccard_similarity(decision_attributions, explanation_attributions, top_k)["jaccard_similarity"]
+
+
+def calculate_jaccard_similarities(
+    decision_attributions: List[Tuple[str, float]],
+    explanation_attributions: List[Tuple[str, float]],
+    top_k_values: List[int] = [10, 20],
+):
+    """Calculate Jaccard similarity for multiple top-k values."""
+    results = {}
+    for top_k in top_k_values:
+        jaccard_score = _calculate_jaccard_similarity(decision_attributions, explanation_attributions, top_k)[
+            "jaccard_similarity"
+        ]
+        results[f"jaccard_{top_k}"] = jaccard_score
+    return results
+
+
 def compute_kl_divergence(
     decision_attributions: List[Tuple[str, float]],
     explanation_attributions: List[Tuple[str, float]],
@@ -201,3 +224,43 @@ def _calculate_lma(
         return {"lma_score": lma}
     else:
         return {"lma_score": None}
+
+
+def _calculate_jaccard_similarity(
+    decision_attributions: List[Tuple[str, float]],
+    explanation_attributions: List[Tuple[str, float]],
+    top_k: int = 10,
+) -> Union[dict[str, Union[float, Any]], dict[str, None]]:
+    """
+    Calculate Jaccard similarity between decision and explanation attributions.
+    Jaccard similarity is computed as the intersection over union of the top-k tokens
+    with highest absolute attribution values.
+
+    Args:
+        decision_attributions: List of (token, score) tuples for decision.
+        explanation_attributions: List of (token, score) tuples for explanation.
+        top_k: Number of top tokens to consider for Jaccard similarity (default: 10).
+
+    Returns:
+        A dictionary containing the Jaccard similarity score.
+    """
+    if not decision_attributions or not explanation_attributions:
+        return {"jaccard_similarity": None}
+
+    # Get top-k tokens based on absolute attribution values
+    decision_top_k = set(
+        [token for token, _ in sorted(decision_attributions, key=lambda x: abs(x[1]), reverse=True)[:top_k]]
+    )
+    explanation_top_k = set(
+        [token for token, _ in sorted(explanation_attributions, key=lambda x: abs(x[1]), reverse=True)[:top_k]]
+    )
+
+    # Calculate Jaccard similarity: |A ∩ B| / |A ∪ B|
+    intersection = len(decision_top_k & explanation_top_k)
+    union = len(decision_top_k | explanation_top_k)
+
+    if union == 0:
+        return {"jaccard_similarity": 0.0}
+
+    jaccard_sim = intersection / union
+    return {"jaccard_similarity": jaccard_sim}

@@ -5,7 +5,10 @@ eval "$(conda shell.bash hook)"
 conda activate ConstLLM
 
 # Set environment variables if needed
-export CUDA_VISIBLE_DEVICES=1
+# Only set CUDA_VISIBLE_DEVICES if it's not already set
+if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
+  export CUDA_VISIBLE_DEVICES=0
+fi
 
 # Out of domain datasets:
 # codah,llama3.1: data/collection_data/codah/unsloth_Meta-Llama-3.1-8B-Instruct/codah_20250415_125210_LIME_llama3.1/test_278.jsonl
@@ -23,7 +26,7 @@ export CUDA_VISIBLE_DEVICES=1
 MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
 DATASET_PATH="data/collection_data/arc_easy/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_easy_20250527_100818_LIG_llama3.1/test_521.jsonl"
 OUTPUT_DIR=""
-RESUME_RUN="eval_250824_172702_test_521_LIG_with_pregen"
+RESUME_RUN=""
 
 IGNORE_PRE_GENERATED=true
 
@@ -57,6 +60,26 @@ USE_WANDB=true
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --help|-h)
+      echo "Usage: $0 [options]"
+      echo ""
+      echo "Options:"
+      echo "  --model_path|-m     Path to the trained model directory or HuggingFace model ID"
+      echo "  --dataset_path|-d   Path to the dataset file (JSONL format)"
+      echo "  --attribution_method|-a  Attribution method to use (default: $ATTRIBUTION_METHOD)"
+      echo "  --num_dec_exp|-n    Number of explanations per decision (default: $NUM_DEC_EXP)"
+      echo "  --temperature|-t    Temperature for model generation (default: $TEMPERATURE)"
+      echo "  --output_dir|-o     Custom output directory for results"
+      echo "  --wandb|-w          Enable wandb logging"
+      echo "  --subset|-s         Size of dataset subset to use"
+      echo "  --seed              Base seed for reproducible experiments (default: $SEED)"
+      echo "  --ignore_pre_generated  Ignore any pre-generated attributions in the dataset"
+      echo "  --is_model_id       Treat model_path as a HuggingFace model ID instead of a local path"
+      echo "  --local_model       Treat model_path as a local path"
+      echo "  --resume_run|-r     Name of a previous run to resume from"
+      echo "  --help|-h           Show this help message"
+      exit 0
+      ;;
     --model_path|-m)
       MODEL_PATH="$2"
       # Better detection logic for the new path
