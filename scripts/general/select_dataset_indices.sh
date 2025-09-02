@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Script to select random indices from dataset test sets for kernel SHAP analysis
-# This script randomly selects 300 indices from each dataset's test set
+# Script to select random indices from dataset test sets
+# This script randomly selects 250 indices from each dataset's test set
 #
 
 # Activate conda environment
@@ -13,7 +13,7 @@ set -e
 
 # Default values
 SPLITS_DIR="data/dataset_splits"
-OUTPUT_FILE="data/dataset_splits/kernel_shap_indices.json"
+OUTPUT_FILE="data/dataset_splits/dataset_indices.json"
 NUM_SAMPLES=250
 SEED=42
 
@@ -23,14 +23,14 @@ function show_help {
     echo ""
     echo "Options:"
     echo "  --splits_dir DIR          Directory containing dataset split indices files (default: data/dataset_splits)"
-    echo "  --output_file FILE        Output JSON file path (default: data/dataset_splits/kernel_shap_indices.json)"
+    echo "  --output_file FILE        Output JSON file path (default: data/dataset_splits/dataset_indices.json)"
     echo "  --num_samples N           Number of indices to select from each test set (default: 250)"
     echo "  --seed SEED               Random seed for reproducibility (default: 42)"
     echo "  -h, --help                Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0                                    # Use all defaults"
-    echo "  $0 --num_samples 500                  # Select 500 indices instead of 300"
+    echo "  $0 --num_samples 500                  # Select 500 indices instead of 250"
     echo "  $0 --seed 123 --output_file custom.json  # Use custom seed and output file"
     echo ""
     echo "This script will:"
@@ -92,7 +92,7 @@ if [[ -z "$CONDA_DEFAULT_ENV" || "$CONDA_DEFAULT_ENV" != "ConstLLM" ]]; then
     conda activate ConstLLM || { echo "Failed to activate ConstLLM environment. Exiting."; exit 1; }
 fi
 
-echo "Selecting kernel SHAP indices..."
+echo "Selecting dataset indices..."
 echo "Splits directory: $SPLITS_DIR"
 echo "Output file: $OUTPUT_FILE"
 echo "Number of samples per dataset: $NUM_SAMPLES"
@@ -100,12 +100,12 @@ echo "Random seed: $SEED"
 echo ""
 
 # Run the Python script
-python src/select_kernel_shap_indices.py \
+python src/select_dataset_indices.py \
     --splits_dir "$SPLITS_DIR" \
     --output_file "$OUTPUT_FILE" \
     --num_samples "$NUM_SAMPLES" \
     --seed "$SEED"
 
 echo ""
-echo "Kernel SHAP indices selection completed!"
-echo "You can now use the generated indices file for your kernel SHAP analysis."
+echo "Dataset indices selection completed!"
+echo "You can now use the generated indices file for your data collection."

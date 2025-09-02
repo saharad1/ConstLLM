@@ -3,6 +3,7 @@
 # Kernel SHAP Data Collection Script for ConstLLM
 # This script runs the data collection process specifically for kernel SHAP analysis
 # using pre-selected scenario IDs from the test sets
+# (Same functionality as collect_data.sh but with indices file filtering)
 #
 
 # Activate conda environment
@@ -13,7 +14,7 @@ conda activate ConstLLM
 set -e
 
 # GPU ID to use
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=0
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
@@ -42,11 +43,12 @@ MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 DATASET="ecqa"
 ATTRIBUTION_METHOD="LIG"
 NUM_EXPLANATIONS=5
+SUBSET=""
 USE_WANDB=true
 RESUME_RUN=""
 TEMPERATURE=0.7
 SEED=42
-INDICES_FILE="data/dataset_splits/kernel_shap_indices.json"
+INDICES_FILE="data/dataset_splits/dataset_indices.json"
 
 # Display help message
 function show_help {
@@ -57,9 +59,9 @@ function show_help {
     echo "  -d, --dataset DATASET      Dataset to use (default: $DATASET)"
     echo "  -a, --attribution METHOD   Attribution method to use (default: $ATTRIBUTION_METHOD)"
     echo "  -n, --num-exp NUMBER       Number of explanations per decision (default: $NUM_EXPLANATIONS)"
+    echo "  -s, --subset SIZE          Size of dataset subset to use (default: all)"
     echo "  --seed VALUE               Base seed for reproducible experiments (default: $SEED)"
     echo "  -w, --wandb                Enable wandb logging"
-    echo "  --no-wandb                 Disable wandb logging"
     echo "  -r, --resume RUN_NAME      Resume a previous run"
     echo "  -g, --gpu GPU_ID           GPU ID to use (default: $CUDA_VISIBLE_DEVICES)"
     echo "  -t, --temperature VALUE    Temperature for model generation (default: $TEMPERATURE)"
@@ -67,7 +69,7 @@ function show_help {
     echo "  -h, --help                 Show this help message"
     echo ""
     echo "Example:"
-    echo "  $0 --model meta-llama/Meta-Llama-3.1-8B-Instruct --dataset ecqa --attribution LIG --wandb"
+    echo "  $0 --model meta-llama/Meta-Llama-3.1-8B-Instruct --dataset ecqa --wandb"
     echo ""
     echo "This script will:"
     echo "  1. Load the kernel SHAP indices for the specified dataset"
@@ -96,16 +98,16 @@ while [[ $# -gt 0 ]]; do
             NUM_EXPLANATIONS="$2"
             shift 2
             ;;
+        -s|--subset)
+            SUBSET="$2"
+            shift 2
+            ;;
         --seed)
             SEED="$2"
             shift 2
             ;;
         -w|--wandb)
             USE_WANDB=true
-            shift
-            ;;
-        --no-wandb)
-            USE_WANDB=false
             shift
             ;;
         -r|--resume)
@@ -156,9 +158,13 @@ if [[ ! -f "$INDICES_FILE" ]]; then
 fi
 
 # Build command
-CMD="python src/collect_data/run_kernel_shap_collection.py --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE --seed $SEED --indices_file $INDICES_FILE"
+CMD="python -m src.collect_data.run_collection_with_indices --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE --seed $SEED --indices_file $INDICES_FILE"
 
 # Add optional parameters
+if [[ -n "$SUBSET" && "$SUBSET" != "None" ]]; then
+    CMD="$CMD --subset $SUBSET"
+fi
+
 if [[ "$USE_WANDB" == false ]]; then
     CMD="$CMD --no_wandb"
 fi
@@ -166,22 +172,6 @@ fi
 if [[ -n "$RESUME_RUN" ]]; then
     CMD="$CMD --resume_run $RESUME_RUN"
 fi
-
-# Print command and configuration
-echo "Kernel SHAP Data Collection Configuration:"
-echo "  Model ID: $MODEL_ID"
-echo "  Dataset: $DATASET"
-echo "  Attribution Method: $ATTRIBUTION_METHOD"
-echo "  Number of Explanations: $NUM_EXPLANATIONS"
-echo "  Temperature: $TEMPERATURE"
-echo "  Seed: $SEED"
-echo "  GPU: $CUDA_VISIBLE_DEVICES"
-echo "  WandB: $USE_WANDB"
-echo "  Indices File: $INDICES_FILE"
-if [[ -n "$RESUME_RUN" ]]; then
-    echo "  Resume Run: $RESUME_RUN"
-fi
-echo ""
 
 # Print command
 echo "Running command: $CMD"

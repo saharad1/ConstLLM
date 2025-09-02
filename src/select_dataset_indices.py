@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Script to randomly select 300 indices from each dataset's test set for kernel SHAP analysis.
+Script to randomly select indices from each dataset's test set.
 
 This script:
 1. Loads the test indices from each dataset's split indices file
-2. Randomly selects 300 indices from each test set
+2. Randomly selects a specified number of indices from each test set
 3. Creates a JSON file with the selected indices organized by dataset
 """
 
@@ -45,20 +45,18 @@ def select_random_indices(indices: List[int], num_samples: int, seed: int) -> Li
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Select random indices from dataset test sets for kernel SHAP analysis"
-    )
+    parser = argparse.ArgumentParser(description="Select random indices from dataset test sets")
     parser.add_argument(
         "--splits_dir", type=str, default="data/dataset_splits", help="Directory containing dataset split indices files"
     )
     parser.add_argument(
         "--output_file",
         type=str,
-        default="data/kernel_shap_indices.json",
+        default="data/dataset_splits/dataset_indices.json",
         help="Output JSON file path for selected indices",
     )
     parser.add_argument(
-        "--num_samples", type=int, default=300, help="Number of indices to select from each test set (default: 300)"
+        "--num_samples", type=int, default=250, help="Number of indices to select from each test set (default: 250)"
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility (default: 42)")
 
@@ -77,11 +75,11 @@ def main():
     datasets = ["arc_easy", "arc_challenge", "ecqa", "codah"]
 
     # Dictionary to store selected indices for each dataset
-    kernel_shap_indices = {
+    dataset_indices = {
         "metadata": {
             "num_samples_per_dataset": args.num_samples,
             "seed": args.seed,
-            "description": "Randomly selected test indices for kernel SHAP analysis",
+            "description": "Randomly selected test indices for data collection",
         },
         "datasets": {},
     }
@@ -102,7 +100,7 @@ def main():
             selected_indices = select_random_indices(test_indices, args.num_samples, args.seed)
 
             # Store in results
-            kernel_shap_indices["datasets"][dataset_name] = {
+            dataset_indices["datasets"][dataset_name] = {
                 "total_test_size": len(test_indices),
                 "selected_indices": selected_indices,
                 "selected_count": len(selected_indices),
@@ -119,14 +117,14 @@ def main():
 
     # Save results
     with open(output_file, "w") as f:
-        json.dump(kernel_shap_indices, f, indent=2)
+        json.dump(dataset_indices, f, indent=2)
 
     print()
     print(f"Results saved to: {output_file}")
 
     # Print summary
     print("\nSummary:")
-    for dataset_name, data in kernel_shap_indices["datasets"].items():
+    for dataset_name, data in dataset_indices["datasets"].items():
         print(f"  {dataset_name}: {data['selected_count']} indices selected from {data['total_test_size']} total")
 
     return 0
