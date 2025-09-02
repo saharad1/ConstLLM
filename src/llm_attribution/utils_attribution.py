@@ -6,5 +6,5 @@ class AttributionMethod(Enum):
     LIME = "lime"
     SHAPLEY_VALUE_SAMPLING = "shapley_value_sampling"
     SHAPLEY_VALUES = "shapley_values"
-    KERNEL_SHAP = "kernel_shap"
+    KSHAP = "kshap"
     LIG = "layer_integrated_gradients"

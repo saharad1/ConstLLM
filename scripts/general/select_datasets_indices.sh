@@ -13,7 +13,7 @@ set -e
 
 # Default values
 SPLITS_DIR="data/dataset_splits"
-OUTPUT_FILE="data/dataset_splits/dataset_indices.json"
+OUTPUT_FILE="data/dataset_splits/datasets_test_indices.json"
 NUM_SAMPLES=250
 SEED=42
 
@@ -23,7 +23,7 @@ function show_help {
     echo ""
     echo "Options:"
     echo "  --splits_dir DIR          Directory containing dataset split indices files (default: data/dataset_splits)"
-    echo "  --output_file FILE        Output JSON file path (default: data/dataset_splits/dataset_indices.json)"
+    echo "  --output_file FILE        Output JSON file path (default: data/dataset_splits/datasets_test_indices.json)"
     echo "  --num_samples N           Number of indices to select from each test set (default: 250)"
     echo "  --seed SEED               Random seed for reproducibility (default: 42)"
     echo "  -h, --help                Show this help message"

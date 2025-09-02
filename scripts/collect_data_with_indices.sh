@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Kernel SHAP Data Collection Script for ConstLLM
-# This script runs the data collection process specifically for kernel SHAP analysis
+# Data Collection Script with Dataset Indices for ConstLLM
+# This script runs the data collection process using pre-selected scenario IDs
 # using pre-selected scenario IDs from the test sets
 # (Same functionality as collect_data.sh but with indices file filtering)
 #
@@ -30,6 +30,7 @@ export CUDA_VISIBLE_DEVICES=0
 # LIG
 # LIME
 # Feature Ablation
+# KSHAP
 
 # Datasets:
 # ecqa
@@ -39,16 +40,16 @@ export CUDA_VISIBLE_DEVICES=0
 # arc_challenge
 
 # Default values
-MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
+MODEL_ID="unsloth/Llama-3.2-3B-Instruct"
 DATASET="ecqa"
-ATTRIBUTION_METHOD="LIG"
+ATTRIBUTION_METHOD="KSHAP"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true
 RESUME_RUN=""
 TEMPERATURE=0.7
 SEED=42
-INDICES_FILE="data/dataset_splits/dataset_indices.json"
+INDICES_FILE="data/dataset_splits/datasets_test_indices.json"
 
 # Display help message
 function show_help {
@@ -65,17 +66,17 @@ function show_help {
     echo "  -r, --resume RUN_NAME      Resume a previous run"
     echo "  -g, --gpu GPU_ID           GPU ID to use (default: $CUDA_VISIBLE_DEVICES)"
     echo "  -t, --temperature VALUE    Temperature for model generation (default: $TEMPERATURE)"
-    echo "  -i, --indices FILE         Kernel SHAP indices file (default: $INDICES_FILE)"
+    echo "  -i, --indices FILE         Dataset indices file (default: $INDICES_FILE)"
     echo "  -h, --help                 Show this help message"
     echo ""
     echo "Example:"
     echo "  $0 --model meta-llama/Meta-Llama-3.1-8B-Instruct --dataset ecqa --wandb"
     echo ""
     echo "This script will:"
-    echo "  1. Load the kernel SHAP indices for the specified dataset"
+    echo "  1. Load the dataset indices for the specified dataset"
     echo "  2. Filter the original dataset to only include those specific scenario IDs"
     echo "  3. Run the full data collection pipeline (decision + explanation + attribution)"
-    echo "  4. Save results in data/kernel_shap_collection/ directory structure"
+    echo "  4. Save results in data/collect_data_with_indices/ directory structure"
     exit 0
 }
 
@@ -152,13 +153,13 @@ fi
 
 # Check if indices file exists
 if [[ ! -f "$INDICES_FILE" ]]; then
-    echo "Error: Kernel SHAP indices file '$INDICES_FILE' does not exist."
-    echo "Please run the select_kernel_shap_indices.sh script first to generate the indices file."
+    echo "Error: Dataset indices file '$INDICES_FILE' does not exist."
+    echo "Please run the select_datasets_indices.sh script first to generate the indices file."
     exit 1
 fi
 
 # Build command
-CMD="python -m src.collect_data.run_collection_with_indices --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE --seed $SEED --indices_file $INDICES_FILE"
+CMD="python -m src.collect_data.run_collect_data_with_indices --model_id $MODEL_ID --dataset $DATASET --attribution_method $ATTRIBUTION_METHOD --num_dec_exp $NUM_EXPLANATIONS --temperature $TEMPERATURE --seed $SEED --indices_file $INDICES_FILE"
 
 # Add optional parameters
 if [[ -n "$SUBSET" && "$SUBSET" != "None" ]]; then
@@ -175,12 +176,12 @@ fi
 
 # Print command
 echo "Running command: $CMD"
-echo "Starting kernel SHAP data collection at $(date)"
+echo "Starting collect data with indices at $(date)"
 echo "------------------------------------"
 
 # Run the command
 $CMD
 
 echo "------------------------------------"
-echo "Kernel SHAP data collection completed at $(date)"
-echo "Results saved in: data/kernel_shap_collection/$DATASET/"
+echo "Collect data with indices completed at $(date)"
+echo "Results saved in: data/collect_data_with_indices/$DATASET/"

@@ -270,7 +270,7 @@ class LLMAnalyzer:
                     results[method] = self.analyze_layer_integrated_gradients(input_text, target, **params)
                 elif method == AttributionMethod.FEATURE_ABLATION.name:
                     results[method] = self.analyze_feature_ablation(input_text, target, **params)
-                elif method == AttributionMethod.KERNEL_SHAP.name:
+                elif method == AttributionMethod.KSHAP.name:
                     results[method] = self.analyze_kernel_shap(input_text, target, **params)
                 # Add other methods here as needed
                 else:

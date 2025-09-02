@@ -26,6 +26,12 @@ class MethodParams:
                 "perturbations_per_eval": perturbations_per_eval,
             }
         },
+        AttributionMethod.KSHAP.name: lambda n_samples=50, perturbations_per_eval=50: {
+            AttributionMethod.KSHAP.name: {
+                "n_samples": n_samples,
+                "perturbations_per_eval": perturbations_per_eval,
+            }
+        },
     }
 
     @classmethod
@@ -37,7 +43,9 @@ class MethodParams:
 
 
 # Generalized phase function
-def run_phase(llm_analyzer, prompt, methods_params, phase="decision", pre_generated_output=None, pre_generated_attributions=None):
+def run_phase(
+    llm_analyzer, prompt, methods_params, phase="decision", pre_generated_output=None, pre_generated_attributions=None
+):
     print(f"Running {phase} phase...")
 
     # Use pre-generated output if provided, otherwise generate it

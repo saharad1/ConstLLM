@@ -177,8 +177,8 @@ def train_dpo_seq(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct", include_sc
         attribution_method = "SHAPLEY_VALUE_SAMPLING"
     elif "_FEATURE_ABLATION_" in dataset_path_str:
         attribution_method = "FEATURE_ABLATION"
-    elif "_KERNEL_SHAP_" in dataset_path_str:
-        attribution_method = "KERNEL_SHAP"
+    elif "_KSHAP_" in dataset_path_str:
+        attribution_method = "KSHAP"
 
     # Generate a timestamped run name
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")

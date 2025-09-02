@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Script for collecting data specifically for kernel SHAP analysis using selected scenario IDs.
+Script for collecting data using selected dataset indices.
 
 This script:
-1. Loads the kernel SHAP indices for a specific dataset
+1. Loads selected indices for a specific dataset from a JSON file
 2. Filters the original dataset to only include those specific scenario IDs
 3. Runs the full data collection pipeline (decision + explanation + attribution) on just those scenarios
-4. Saves results in a kernel SHAP specific directory structure
+4. Saves results in a collection_with_indices specific directory structure
 """
 
 import argparse
@@ -16,13 +16,18 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
 import psutil
 import torch
 from tqdm import tqdm
 
 import wandb
 from src.collect_data.attribution_config import get_attribution_methods_params
-from src.collect_data.collection_metrics import calculate_metrics
+from src.collect_data.collection_metrics import calculate_metrics, extract_choice
+from src.collect_data.comp_similarity_scores import (
+    calculate_cosine_similarity,
+    calculate_spearman_correlation,
+)
 from src.collect_data.dataset_loader import load_and_prepare_dataset
 from src.collect_data.run_collection_utils import (
     load_checkpoints,
@@ -60,8 +65,8 @@ def get_scenario_attribute(scenario_item, dict_key, obj_attr, default=""):
         return getattr(scenario_item, obj_attr, default)
 
 
-def load_kernel_shap_indices(indices_file: str, dataset_name: str) -> list:
-    """Load the selected scenario IDs for kernel SHAP analysis."""
+def load_dataset_indices(indices_file: str, dataset_name: str) -> list:
+    """Load the selected scenario IDs for the dataset."""
     with open(indices_file, "r") as f:
         data = json.load(f)
 
@@ -103,10 +108,10 @@ def filter_dataset_by_indices(dataset, selected_indices: list):
     return filtered_scenarios
 
 
-def setup_kernel_shap_run_environment(dataset_name, model_id, attribution_method_name, resume_run=None):
+def setup_collection_with_indices_run_environment(dataset_name, model_id, attribution_method_name, resume_run=None):
     """
-    Set up the run environment for kernel SHAP data collection.
-    Similar to the original but with kernel SHAP specific naming.
+    Set up the run environment for data collection with indices.
+    Similar to the original but with indices-specific naming.
     """
     # Set up run name and directories
     if resume_run:
@@ -130,11 +135,11 @@ def setup_kernel_shap_run_environment(dataset_name, model_id, attribution_method
             # For other models, use first 10 chars of model name
             short_model = model_name.split("-")[0][:10]
 
-        run_name = f"{dataset_name}_kernel_shap_{current_time}_{attribution_method_name}_{short_model}"
+        run_name = f"{dataset_name}_{current_time}_{attribution_method_name}_{short_model}"
 
-    # Create output directory with kernel SHAP specific path
+    # Create output directory with indices-specific path
     safe_model_id = model_id.replace("/", "_")
-    output_dir = Path(f"data/kernel_shap_collection/{dataset_name}/{safe_model_id}")
+    output_dir = Path(f"data/collect_data_with_indices/{dataset_name}/{safe_model_id}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create run directory
@@ -149,7 +154,7 @@ def setup_kernel_shap_run_environment(dataset_name, model_id, attribution_method
     return run_name, attribution_method_name, run_dir, jsonl_filename, checkpoint_file, progress_file
 
 
-def run_kernel_shap_collection(
+def run_collect_data_with_indices(
     model_id,
     dataset_name,
     indices_file,
@@ -161,12 +166,12 @@ def run_kernel_shap_collection(
     base_seed=42,
 ):
     """
-    Run the kernel SHAP data collection process for selected scenario IDs.
+    Run the data collection process using selected dataset indices.
 
     Args:
         model_id: ID of the model to use
         dataset_name: Name of the dataset to use
-        indices_file: Path to the kernel SHAP indices JSON file
+        indices_file: Path to the dataset indices JSON file
         attribution_method_name: Name of the attribution method to use
         num_dec_exp: Number of decision explanations to generate
         use_wandb: Whether to use wandb for logging
@@ -187,13 +192,13 @@ def run_kernel_shap_collection(
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Load kernel SHAP indices
-    print(f"Loading kernel SHAP indices from: {indices_file}")
-    selected_indices = load_kernel_shap_indices(indices_file, dataset_name)
+    # Load dataset indices
+    print(f"Loading dataset indices from: {indices_file}")
+    selected_indices = load_dataset_indices(indices_file, dataset_name)
 
     # Set up run environment
     run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = (
-        setup_kernel_shap_run_environment(
+        setup_collection_with_indices_run_environment(
             dataset_name=dataset_name,
             model_id=model_id,
             attribution_method_name=attribution_method_name,
@@ -204,7 +209,7 @@ def run_kernel_shap_collection(
     # Set up wandb if enabled
     if use_wandb:
         wandb.init(
-            project="constllm_kernel_shap_collection",
+            project="constllm_collect_data_with_indices",
             name=run_name,
             config={
                 "model_id": model_id,
@@ -212,14 +217,14 @@ def run_kernel_shap_collection(
                 "attribution_method": attribution_method_name,
                 "num_dec_exp": num_dec_exp,
                 "temperature": temperature,
-                "kernel_shap_indices_file": indices_file,
+                "indices_file": indices_file,
                 "num_selected_scenarios": len(selected_indices),
             },
         )
 
     # Load full dataset first
     print(f"Loading full dataset: {dataset_name}")
-    full_dataset = load_and_prepare_dataset(dataset_name)
+    full_dataset = load_and_prepare_dataset(dataset_name, subset=None)
 
     # Filter dataset to only include selected scenario IDs
     filtered_dataset = filter_dataset_by_indices(full_dataset, selected_indices)
@@ -290,12 +295,24 @@ def run_kernel_shap_collection(
                 methods_params_explanation=methods_params_explanation,
                 generation_seeds=generation_seeds,
                 num_dec_exp=num_dec_exp,
+                original_params=original_params,
                 iteration=iteration,
+                output_dir=output_dir,
+                jsonl_filename=jsonl_filename,
             )
 
             if scenario_result:
                 # Calculate metrics
-                metrics = calculate_metrics(scenario_result)
+                scenario_time = time.time() - start_time
+                metrics, success_sum = calculate_metrics(
+                    scenario_res=scenario_result,
+                    success_sum=success_sum,
+                    iteration=iteration,
+                    spearman_sums=spearman_sums,
+                    cosine_sums=cosine_sums,
+                    scenario_time=scenario_time,
+                    total_time_sum=total_time_sum,
+                )
 
                 # Update sums
                 success_sum += 1
@@ -338,7 +355,7 @@ def run_kernel_shap_collection(
             continue
 
     # Final summary
-    print(f"\nKernel SHAP data collection completed!")
+    print(f"\nCollect data with indices completed!")
     print(f"Successfully processed: {success_sum}/{len(filtered_dataset)} scenarios")
     if success_sum > 0:
         print(
@@ -359,11 +376,75 @@ def run_kernel_shap_collection(
     return output_dir
 
 
+def save_scenario_details(scenario_res, output_dir):
+    """Save detailed scenario information to a log file."""
+    # Create a log file in the output directory
+    log_file = output_dir / "scenario_details.log"
+
+    with open(log_file, "a") as f:
+        f.write("\n" + "=" * 50 + "\n")
+        f.write(f"\nScenario {scenario_res.get('scenario_id', 'unknown')}:\n")
+        f.write("-" * 50 + "\n")
+
+        # Print question
+        f.write(f"Question: {scenario_res.get('decision_prompt', 'N/A')}\n")
+
+        # Print correct answer and model's decision
+        f.write(f"\nCorrect Answer: {scenario_res.get('correct_label', 'N/A')}\n")
+        decision_output = scenario_res.get("decision_output", "")
+        if ")" in decision_output:
+            choice = decision_output.split(")", 1)[0] + ")"
+            f.write(f"Model's Decision: {choice.strip()}\n")
+        else:
+            f.write(f"Model's Decision: {decision_output}\n")
+
+        # Print explanations and their scores
+        if "explanation_attributions" in scenario_res and "decision_attributions" in scenario_res:
+            decision_attr = scenario_res["decision_attributions"]
+            explanation_attrs = scenario_res["explanation_attributions"]
+
+            # Calculate scores for all explanations
+            explanation_scores = []
+            for j, expl_attr in enumerate(explanation_attrs):
+                spearman_score = calculate_spearman_correlation(decision_attr, expl_attr)
+                cosine_score = calculate_cosine_similarity(decision_attr, expl_attr)
+
+                explanation_text = (
+                    scenario_res.get("explanation_outputs", ["N/A"])[j]
+                    if "explanation_outputs" in scenario_res
+                    else scenario_res.get("explanation", "N/A")
+                )
+
+                explanation_scores.append(
+                    {"index": j, "text": explanation_text, "spearman": spearman_score, "cosine": cosine_score}
+                )
+
+            # Sort explanations by Spearman correlation score
+            explanation_scores.sort(
+                key=lambda x: x["spearman"] if x["spearman"] is not None else float("-inf"), reverse=True
+            )
+
+            f.write("\nExplanations and Scores (sorted by Spearman correlation):\n")
+            for j, score_info in enumerate(explanation_scores):
+                f.write(f"\nExplanation {j+1}:\n")
+                f.write(f"Text: {score_info['text']}\n")
+                f.write(
+                    f"Spearman Correlation: {score_info['spearman']:.4f}\n"
+                    if score_info["spearman"] is not None
+                    else "Spearman Correlation: N/A\n"
+                )
+                f.write(
+                    f"Cosine Similarity: {score_info['cosine']:.4f}\n"
+                    if score_info["cosine"] is not None
+                    else "Cosine Similarity: N/A\n"
+                )
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Collect kernel SHAP data using selected scenario IDs")
+    parser = argparse.ArgumentParser(description="Collect data using selected dataset indices")
     parser.add_argument("--model_id", type=str, required=True, help="Model ID to use")
     parser.add_argument("--dataset", type=str, required=True, help="Dataset to use")
-    parser.add_argument("--indices_file", type=str, required=True, help="Path to kernel SHAP indices JSON file")
+    parser.add_argument("--indices_file", type=str, required=True, help="Path to dataset indices JSON file")
     parser.add_argument("--attribution_method", type=str, default="LIME", help="Attribution method to use")
     parser.add_argument("--num_dec_exp", type=int, default=5, help="Number of explanations per decision")
     parser.add_argument("--no_wandb", action="store_true", help="Disable wandb logging")
@@ -373,7 +454,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run_kernel_shap_collection(
+    run_collect_data_with_indices(
         model_id=args.model_id,
         dataset_name=args.dataset,
         indices_file=args.indices_file,

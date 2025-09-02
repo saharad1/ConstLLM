@@ -52,7 +52,7 @@ def main():
     parser.add_argument(
         "--output_file",
         type=str,
-        default="data/dataset_splits/dataset_indices.json",
+        default="data/dataset_splits/datasets_test_indices.json",
         help="Output JSON file path for selected indices",
     )
     parser.add_argument(

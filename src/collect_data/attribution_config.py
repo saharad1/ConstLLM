@@ -30,6 +30,10 @@ def configure_attribution_methods(attribution_method_name, phase=None):
     elif attribution_method_upper == "SHAPLEY_VALUE_SAMPLING":
         method_name = AttributionMethod.SHAPLEY_VALUE_SAMPLING.name
         params = MethodParams.set_params(method_name, n_samples=500)
+    elif attribution_method_upper == "KSHAP":
+        method_name = AttributionMethod.KSHAP.name
+        params = MethodParams.set_params(method_name, n_samples=500, perturbations_per_eval=500)
+        print(f"KSHAP parameters configured: {params}")  # Debug print to see actual values
     else:
         raise ValueError(f"Unsupported attribution method: {attribution_method_name}")
 
