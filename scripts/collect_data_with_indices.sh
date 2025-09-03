@@ -14,7 +14,7 @@ conda activate ConstLLM
 set -e
 
 # GPU ID to use
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=2
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3

@@ -9,16 +9,13 @@ import sys
 import time
 from pathlib import Path
 
-import numpy as np
 import psutil
 import torch
-from tqdm import tqdm
 
 import wandb
 from src.collect_data.attribution_config import get_attribution_methods_params
 from src.collect_data.collection_metrics import calculate_metrics
 from src.collect_data.run_collection_utils import (
-    load_checkpoints,
     save_checkpoint,
     save_progress,
     update_progress,
@@ -26,7 +23,6 @@ from src.collect_data.run_collection_utils import (
 from src.collect_data.scenario_runner import (
     process_single_scenario,
     save_scenario_details,
-    save_scenario_result,
 )
 from src.llm_attribution.LLMAnalyzer import LLMAnalyzer
 
