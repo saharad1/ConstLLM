@@ -1,45 +1,21 @@
+#!/usr/bin/env python3
 """
 Script for collecting data by running models on scenarios and computing attributions.
+Refactored to use the BaseDataCollector class.
 """
 
 import argparse
-import json
-import os
-import signal
-import sys
-import time
-from pathlib import Path
 
-import numpy as np
-import psutil
-import torch
-from datasets import load_dataset
 from tqdm import tqdm
 
 import wandb
-from src.collect_data.attribution_config import get_attribution_methods_params
-from src.collect_data.collection_metrics import calculate_metrics, extract_choice
-from src.collect_data.comp_similarity_scores import (
-    calculate_cosine_similarity,
-    calculate_spearman_correlation,
-)
+from src.collect_data.base_collector import BaseDataCollector
 from src.collect_data.dataset_loader import load_and_prepare_dataset
 from src.collect_data.run_collection_utils import (
     load_checkpoints,
-    save_checkpoint,
-    save_progress,
     setup_run_environment,
     update_progress,
 )
-from src.collect_data.scenario_runner import (
-    process_single_scenario,
-    save_scenario_result,
-)
-from src.llm_attribution.LLMAnalyzer import LLMAnalyzer
-
-# Constants
-MEMORY_CHECK_INTERVAL = 20
-RELOAD_MODEL_EVERY = 50
 
 
 def get_scenario_attribute(scenario_item, dict_key, obj_attr, default=""):
@@ -59,6 +35,106 @@ def get_scenario_attribute(scenario_item, dict_key, obj_attr, default=""):
         return scenario_item.get(dict_key, default)
     else:
         return getattr(scenario_item, obj_attr, default)
+
+
+class FullDatasetCollector(BaseDataCollector):
+    """Collector for processing the full dataset."""
+
+    def __init__(
+        self,
+        model_id,
+        dataset_name,
+        attribution_method_name,
+        num_dec_exp,
+        subset,
+        use_wandb,
+        resume_run,
+        temperature,
+        base_seed,
+    ):
+        super().__init__(
+            model_id, dataset_name, attribution_method_name, num_dec_exp, use_wandb, resume_run, temperature, base_seed
+        )
+        self.subset = subset
+
+    def setup_run_environment(self):
+        """Set up the run environment."""
+        run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = (
+            setup_run_environment(
+                dataset_name=self.dataset_name,
+                model_id=self.model_id,
+                attribution_method_name=self.attribution_method_name,
+                resume_run=self.resume_run,
+            )
+        )
+
+        self.output_dir = output_dir
+        self.jsonl_filename = jsonl_filename
+        self.checkpoint_file = checkpoint_file
+        self.progress_file = progress_file
+
+        # Set up wandb if enabled
+        if self.use_wandb:
+            wandb.init(
+                project="constllm_collect_data",
+                name=run_name,
+                config={
+                    "model_id": self.model_id,
+                    "dataset": self.dataset_name,
+                    "attribution_method": self.attribution_method_name,
+                    "num_dec_exp": self.num_dec_exp,
+                    "temperature": self.temperature,
+                },
+            )
+
+    def run_collection(self, dataset):
+        """Run the main collection loop."""
+        # Load checkpoints
+        self.processed_scenarios, self.progress_data = load_checkpoints(
+            checkpoint_file=self.checkpoint_file, progress_file=self.progress_file, total_scenarios=len(dataset)
+        )
+
+        # Process scenarios
+        for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
+            # Skip already processed scenarios
+            scenario_id = get_scenario_attribute(scenario_item, "scenario_id", "scenario_id", f"scenario_{iteration}")
+            if scenario_id in self.processed_scenarios:
+                continue
+
+            # Check memory usage
+            self.check_memory_usage(iteration)
+
+            # Process the scenario
+            scenario_result, scenario_time = self.process_single_scenario_wrapper(scenario_item, iteration, scenario_id)
+
+            if scenario_result:
+                # Mark as processed (scenario already saved in process_single_scenario)
+                # Note: save_scenario_result is called inside process_single_scenario to handle retries properly
+                self.processed_scenarios.add(scenario_id)
+
+                # Update progress
+                failed_scenarios = self.progress_data.get("failed_scenarios", [])
+                self.progress_data = update_progress(self.progress_data, self.processed_scenarios, failed_scenarios)
+
+                # Save progress immediately (same as original)
+                if hasattr(self, "progress_file") and self.progress_file:
+                    try:
+                        from src.collect_data.run_collection_utils import save_progress
+
+                        save_progress(self.progress_file, self.progress_data)
+                    except Exception as e:
+                        print(f"Error saving progress: {e}")
+
+                # Calculate metrics (same order as original)
+                metrics = self.calculate_and_log_metrics(scenario_result, iteration, scenario_time)
+
+                # Save checkpoint periodically
+                self._save_periodic_checkpoint(iteration)
+
+        # Finalize
+        print(f"Data collection completed. Processed {len(self.processed_scenarios)} scenarios.")
+        self.save_state()
+        self.cleanup()
 
 
 def run_collect_data(
@@ -87,242 +163,33 @@ def run_collect_data(
         base_seed: Base seed for reproducible experiments (default: 42)
     """
 
-    # Set up signal handler for graceful termination
-    def signal_handler(sig, frame):
-        print("\nReceived termination signal. Saving checkpoint and exiting...")
-        save_checkpoint(checkpoint_file, processed_scenarios)
-        save_progress(progress_file, progress_data)
-        if use_wandb:
-            wandb.finish()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Set up run environment
-    run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = (
-        setup_run_environment(
-            dataset_name=dataset_name,
-            model_id=model_id,
-            attribution_method_name=attribution_method_name,
-            resume_run=resume_run,
-        )
+    # Create collector instance
+    collector = FullDatasetCollector(
+        model_id=model_id,
+        dataset_name=dataset_name,
+        attribution_method_name=attribution_method_name,
+        num_dec_exp=num_dec_exp,
+        subset=subset,
+        use_wandb=use_wandb,
+        resume_run=resume_run,
+        temperature=temperature,
+        base_seed=base_seed,
     )
 
-    # Set up wandb if enabled
-    if use_wandb:
-        wandb.init(
-            project="constllm_collect_data",
-            name=run_name,
-            config={
-                "model_id": model_id,
-                "dataset": dataset_name,
-                "attribution_method": attribution_method_name,
-                "num_dec_exp": num_dec_exp,
-                "temperature": temperature,
-            },
-        )
+    # Set up the collector
+    collector.setup_signal_handlers()
+    collector.setup_run_environment()
+    collector.setup_attribution_methods()
+    collector.setup_llm_analyzer()
+    collector.setup_generation_seeds()
+    collector.setup_original_params()
 
-    # Load dataset
+    # Load dataset and run collection
     dataset = load_and_prepare_dataset(dataset_name, subset)
-
-    # Load checkpoints
-    processed_scenarios, progress_data = load_checkpoints(
-        checkpoint_file=checkpoint_file, progress_file=progress_file, total_scenarios=len(dataset)
-    )
-
-    # Initialize tracking variables
-    last_model_reload = 0
-    last_memory_check = 0
-    success_sum = 0
-    spearman_sums = {"best": 0, "worst": 0, "median": 0}
-    cosine_sums = {"best": 0, "worst": 0, "median": 0}
-    total_time_sum = 0
-
-    # Set up attribution methods
-    methods_params_decision, methods_params_explanation = get_attribution_methods_params(attribution_method_name)
-
-    # Initialize LLM analyzer with the model
-    print(f"Loading model: {model_id}")
-    llm_analyzer = LLMAnalyzer(model_id=model_id, temperature=temperature)
-
-    # Compute deterministic seeds from the base seed for each generation
-    print(f"Using base seed: {base_seed}")
-    # Create sequential seeds for each explanation generation
-    generation_seeds = [base_seed + i for i in range(num_dec_exp)]
-    print(f"Generated seeds for explanations: {generation_seeds}")
-
-    # Store original parameters for reset after retries
-    original_params = {
-        "model_id": model_id,
-        "decision": methods_params_decision.copy(),
-        "explanation": methods_params_explanation.copy(),
-    }
-
-    # Process scenarios
-    for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
-        scenario_start_time = time.time()
-        # Skip already processed scenarios
-        scenario_id = get_scenario_attribute(scenario_item, "scenario_id", "scenario_id", f"scenario_{iteration}")
-        if scenario_id in processed_scenarios:
-            continue
-
-        # Check memory usage periodically
-        if iteration - last_memory_check >= MEMORY_CHECK_INTERVAL:
-            last_memory_check = iteration
-            memory_info = psutil.virtual_memory()
-            memory_percent = memory_info.percent
-            if memory_percent > 90:
-                print(f"High memory usage detected ({memory_percent}%). Saving checkpoint and exiting...")
-                save_checkpoint(checkpoint_file, processed_scenarios)
-                save_progress(progress_file, progress_data)
-                if use_wandb:
-                    wandb.finish()
-                return
-
-        # Reload model periodically to prevent memory leaks
-        if iteration - last_model_reload >= RELOAD_MODEL_EVERY:
-            last_model_reload = iteration
-            print("Reloading model to prevent memory leaks...")
-            del llm_analyzer
-            torch.cuda.empty_cache()
-            time.sleep(2)  # Give some time for memory to be freed
-            llm_analyzer = LLMAnalyzer(model_id, temperature=temperature)
-
-        # Process the scenario
-        scenario_res, error_msg = process_single_scenario(
-            scenario_item=scenario_item,
-            llm_analyzer=llm_analyzer,
-            methods_params_decision=methods_params_decision,
-            methods_params_explanation=methods_params_explanation,
-            num_dec_exp=num_dec_exp,
-            generation_seeds=generation_seeds,
-            original_params=original_params,
-            iteration=iteration,
-            output_dir=output_dir,
-            jsonl_filename=jsonl_filename,
-        )
-
-        # Add timing end and logging here
-        scenario_time = time.time() - scenario_start_time
-        total_time_sum += scenario_time
-        # Skip if processing failed
-        if scenario_res is None:
-            # Log error to file
-            error_file = output_dir / "errors.log"
-            with open(error_file, "a") as f:
-                f.write(f"Scenario {scenario_id} (iteration {iteration}): {error_msg}\n")
-
-            # Add to failed scenarios in progress data
-            if "failed_scenarios" not in progress_data:
-                progress_data["failed_scenarios"] = []
-            progress_data["failed_scenarios"].append(scenario_id)
-            save_progress(progress_file, progress_data)
-            continue
-
-        # Mark as processed (scenario already saved in process_single_scenario)
-        # Note: save_scenario_result is called inside process_single_scenario to handle retries properly
-        processed_scenarios.add(scenario_id)
-
-        # Update progress
-        failed_scenarios = progress_data.get("failed_scenarios", [])
-        progress_data = update_progress(progress_data, processed_scenarios, failed_scenarios)
-        save_progress(progress_file, progress_data)
-
-        # Calculate metrics
-        metrics, success_sum = calculate_metrics(
-            scenario_res=scenario_res,
-            success_sum=success_sum,
-            iteration=iteration,
-            spearman_sums=spearman_sums,
-            cosine_sums=cosine_sums,
-            scenario_time=scenario_time,
-            total_time_sum=total_time_sum,
-        )
-
-        # Log metrics
-        if use_wandb:
-            wandb.log(metrics)
-
-        # Save checkpoint periodically
-        if iteration % 10 == 0:
-            save_checkpoint(checkpoint_file, processed_scenarios)
-
-    # Finalize
-    print(f"Data collection completed. Processed {len(processed_scenarios)} scenarios.")
-    save_checkpoint(checkpoint_file, processed_scenarios)
-    save_progress(progress_file, progress_data)
-    if use_wandb:
-        wandb.finish()
-
-
-def save_scenario_details(scenario_res, output_dir):
-    """Save detailed scenario information to a log file."""
-    # Create a log file in the output directory
-    log_file = output_dir / "scenario_details.log"
-
-    with open(log_file, "a") as f:
-        f.write("\n" + "=" * 50 + "\n")
-        f.write(f"\nScenario {scenario_res.get('scenario_id', 'unknown')}:\n")
-        f.write("-" * 50 + "\n")
-
-        # Print question
-        f.write(f"Question: {scenario_res.get('decision_prompt', 'N/A')}\n")
-
-        # Print correct answer and model's decision
-        f.write(f"\nCorrect Answer: {scenario_res.get('correct_label', 'N/A')}\n")
-        decision_output = scenario_res.get("decision_output", "")
-        if ")" in decision_output:
-            choice = decision_output.split(")", 1)[0] + ")"
-            f.write(f"Model's Decision: {choice.strip()}\n")
-        else:
-            f.write(f"Model's Decision: {decision_output}\n")
-
-        # Print explanations and their scores
-        if "explanation_attributions" in scenario_res and "decision_attributions" in scenario_res:
-            decision_attr = scenario_res["decision_attributions"]
-            explanation_attrs = scenario_res["explanation_attributions"]
-
-            # Calculate scores for all explanations
-            explanation_scores = []
-            for j, expl_attr in enumerate(explanation_attrs):
-                spearman_score = calculate_spearman_correlation(decision_attr, expl_attr)
-                cosine_score = calculate_cosine_similarity(decision_attr, expl_attr)
-
-                explanation_text = (
-                    scenario_res.get("explanation_outputs", ["N/A"])[j]
-                    if "explanation_outputs" in scenario_res
-                    else scenario_res.get("explanation", "N/A")
-                )
-
-                explanation_scores.append(
-                    {"index": j, "text": explanation_text, "spearman": spearman_score, "cosine": cosine_score}
-                )
-
-            # Sort explanations by Spearman correlation score
-            explanation_scores.sort(
-                key=lambda x: x["spearman"] if x["spearman"] is not None else float("-inf"), reverse=True
-            )
-
-            f.write("\nExplanations and Scores (sorted by Spearman correlation):\n")
-            for j, score_info in enumerate(explanation_scores):
-                f.write(f"\nExplanation {j+1}:\n")
-                f.write(f"Text: {score_info['text']}\n")
-                f.write(
-                    f"Spearman Correlation: {score_info['spearman']:.4f}\n"
-                    if score_info["spearman"] is not None
-                    else "Spearman Correlation: N/A\n"
-                )
-                f.write(
-                    f"Cosine Similarity: {score_info['cosine']:.4f}\n"
-                    if score_info["cosine"] is not None
-                    else "Cosine Similarity: N/A\n"
-                )
+    collector.run_collection(dataset)
 
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser(description="Collect data using a specified model")
     parser.add_argument("--model_id", type=str, required=True, help="Model ID to use")
     parser.add_argument("--dataset", type=str, default="ecqa", help="Dataset to use")

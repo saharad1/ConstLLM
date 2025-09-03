@@ -11,58 +11,14 @@ This script:
 
 import argparse
 import json
-import signal
-import sys
-import time
 from pathlib import Path
 
-import numpy as np
-import psutil
-import torch
 from tqdm import tqdm
 
 import wandb
-from src.collect_data.attribution_config import get_attribution_methods_params
-from src.collect_data.collection_metrics import calculate_metrics, extract_choice
-from src.collect_data.comp_similarity_scores import (
-    calculate_cosine_similarity,
-    calculate_spearman_correlation,
-)
+from src.collect_data.base_collector import BaseDataCollector
 from src.collect_data.dataset_loader import load_and_prepare_dataset
-from src.collect_data.run_collection_utils import (
-    load_checkpoints,
-    save_checkpoint,
-    save_progress,
-    update_progress,
-)
-from src.collect_data.scenario_runner import (
-    process_single_scenario,
-    save_scenario_result,
-)
-from src.llm_attribution.LLMAnalyzer import LLMAnalyzer
-
-# Constants
-MEMORY_CHECK_INTERVAL = 20
-RELOAD_MODEL_EVERY = 50
-
-
-def get_scenario_attribute(scenario_item, dict_key, obj_attr, default=""):
-    """
-    Helper function to get an attribute from either a dictionary or an object.
-
-    Args:
-        scenario_item: Either a dictionary or an object
-        dict_key: The key to use if scenario_item is a dictionary
-        obj_attr: The attribute name to use if scenario_item is an object
-        default: Default value to return if attribute is not found
-
-    Returns:
-        The value from the scenario_item
-    """
-    if isinstance(scenario_item, dict):
-        return scenario_item.get(dict_key, default)
-    else:
-        return getattr(scenario_item, obj_attr, default)
+from src.collect_data.run_collection_utils import load_checkpoints, update_progress
 
 
 def load_dataset_indices(indices_file: str, dataset_name: str) -> list:
@@ -154,6 +110,123 @@ def setup_collection_with_indices_run_environment(dataset_name, model_id, attrib
     return run_name, attribution_method_name, run_dir, jsonl_filename, checkpoint_file, progress_file
 
 
+class IndicesDatasetCollector(BaseDataCollector):
+    """Collector for processing dataset with selected indices."""
+
+    def __init__(
+        self,
+        model_id,
+        dataset_name,
+        indices_file,
+        attribution_method_name,
+        num_dec_exp,
+        use_wandb,
+        resume_run,
+        temperature,
+        base_seed,
+    ):
+        super().__init__(
+            model_id, dataset_name, attribution_method_name, num_dec_exp, use_wandb, resume_run, temperature, base_seed
+        )
+        self.indices_file = indices_file
+        self.selected_indices = None
+        self.filtered_dataset = None
+
+    def setup_run_environment(self):
+        """Set up the run environment."""
+        run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = (
+            setup_collection_with_indices_run_environment(
+                dataset_name=self.dataset_name,
+                model_id=self.model_id,
+                attribution_method_name=self.attribution_method_name,
+                resume_run=self.resume_run,
+            )
+        )
+
+        self.output_dir = output_dir
+        self.jsonl_filename = jsonl_filename
+        self.checkpoint_file = checkpoint_file
+        self.progress_file = progress_file
+
+        # Set up wandb if enabled
+        if self.use_wandb:
+            wandb.init(
+                project="constllm_collect_data_with_indices",
+                name=run_name,
+                config={
+                    "model_id": self.model_id,
+                    "dataset": self.dataset_name,
+                    "attribution_method": self.attribution_method_name,
+                    "num_dec_exp": self.num_dec_exp,
+                    "temperature": self.temperature,
+                    "indices_file": self.indices_file,
+                    "num_selected_scenarios": len(self.selected_indices),
+                },
+            )
+
+    def load_and_filter_dataset(self):
+        """Load dataset indices and filter the dataset."""
+        # Load dataset indices
+        print(f"Loading dataset indices from: {self.indices_file}")
+        self.selected_indices = load_dataset_indices(self.indices_file, self.dataset_name)
+
+        # Load full dataset first
+        print(f"Loading full dataset: {self.dataset_name}")
+        full_dataset = load_and_prepare_dataset(self.dataset_name, subset=None)
+
+        # Filter dataset to only include selected scenario IDs
+        self.filtered_dataset = filter_dataset_by_indices(full_dataset, self.selected_indices)
+
+    def run_collection(self, dataset):
+        """Run the main collection loop."""
+        # Load checkpoints
+        self.processed_scenarios, self.progress_data = load_checkpoints(
+            checkpoint_file=self.checkpoint_file, progress_file=self.progress_file, total_scenarios=len(dataset)
+        )
+
+        # Process scenarios
+        for iteration, scenario_item in enumerate(tqdm(dataset, desc="Processing scenarios"), 1):
+            # Skip if already processed
+            if iteration in self.processed_scenarios:
+                print(f"Skipping already processed scenario {iteration}")
+                continue
+
+            # Check memory usage
+            self.check_memory_usage(iteration)
+
+            # Process the scenario
+            scenario_result, scenario_time = self.process_single_scenario_wrapper(scenario_item, iteration)
+
+            if scenario_result:
+                # Mark as processed (scenario already saved in process_single_scenario)
+                # Note: save_scenario_result is called inside process_single_scenario to handle retries properly
+                self.processed_scenarios.add(iteration)
+
+                # Update progress
+                failed_scenarios = self.progress_data.get("failed_scenarios", [])
+                self.progress_data = update_progress(self.progress_data, self.processed_scenarios, failed_scenarios)
+
+                # Save progress immediately (same as original)
+                if hasattr(self, "progress_file") and self.progress_file:
+                    try:
+                        from src.collect_data.run_collection_utils import save_progress
+
+                        save_progress(self.progress_file, self.progress_data)
+                    except Exception as e:
+                        print(f"Error saving progress: {e}")
+
+                # Calculate metrics (same order as original)
+                metrics = self.calculate_and_log_metrics(scenario_result, iteration, scenario_time)
+
+                # Save checkpoint periodically
+                self._save_periodic_checkpoint(iteration)
+
+        # Finalize
+        self.print_final_summary(len(dataset))
+        self.save_state()
+        self.cleanup()
+
+
 def run_collect_data_with_indices(
     model_id,
     dataset_name,
@@ -180,264 +253,30 @@ def run_collect_data_with_indices(
         base_seed: Base seed for reproducible experiments (default: 42)
     """
 
-    # Set up signal handler for graceful termination
-    def signal_handler(sig, frame):
-        print("\nReceived termination signal. Saving checkpoint and exiting...")
-        save_checkpoint(checkpoint_file, processed_scenarios)
-        save_progress(progress_file, progress_data)
-        if use_wandb:
-            wandb.finish()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Load dataset indices
-    print(f"Loading dataset indices from: {indices_file}")
-    selected_indices = load_dataset_indices(indices_file, dataset_name)
-
-    # Set up run environment
-    run_name, attribution_method_name, output_dir, jsonl_filename, checkpoint_file, progress_file = (
-        setup_collection_with_indices_run_environment(
-            dataset_name=dataset_name,
-            model_id=model_id,
-            attribution_method_name=attribution_method_name,
-            resume_run=resume_run,
-        )
+    # Create collector instance
+    collector = IndicesDatasetCollector(
+        model_id=model_id,
+        dataset_name=dataset_name,
+        indices_file=indices_file,
+        attribution_method_name=attribution_method_name,
+        num_dec_exp=num_dec_exp,
+        use_wandb=use_wandb,
+        resume_run=resume_run,
+        temperature=temperature,
+        base_seed=base_seed,
     )
 
-    # Set up wandb if enabled
-    if use_wandb:
-        wandb.init(
-            project="constllm_collect_data_with_indices",
-            name=run_name,
-            config={
-                "model_id": model_id,
-                "dataset": dataset_name,
-                "attribution_method": attribution_method_name,
-                "num_dec_exp": num_dec_exp,
-                "temperature": temperature,
-                "indices_file": indices_file,
-                "num_selected_scenarios": len(selected_indices),
-            },
-        )
+    # Set up the collector
+    collector.setup_signal_handlers()
+    collector.load_and_filter_dataset()
+    collector.setup_run_environment()
+    collector.setup_attribution_methods()
+    collector.setup_llm_analyzer()
+    collector.setup_generation_seeds()
+    collector.setup_original_params()
 
-    # Load full dataset first
-    print(f"Loading full dataset: {dataset_name}")
-    full_dataset = load_and_prepare_dataset(dataset_name, subset=None)
-
-    # Filter dataset to only include selected scenario IDs
-    filtered_dataset = filter_dataset_by_indices(full_dataset, selected_indices)
-
-    # Load checkpoints
-    processed_scenarios, progress_data = load_checkpoints(
-        checkpoint_file=checkpoint_file, progress_file=progress_file, total_scenarios=len(filtered_dataset)
-    )
-
-    # Initialize tracking variables
-    last_model_reload = 0
-    last_memory_check = 0
-    success_sum = 0
-    spearman_sums = {"best": 0, "worst": 0, "median": 0}
-    cosine_sums = {"best": 0, "worst": 0, "median": 0}
-    total_time_sum = 0
-
-    # Set up attribution methods
-    methods_params_decision, methods_params_explanation = get_attribution_methods_params(attribution_method_name)
-
-    # Initialize LLM analyzer with the model
-    print(f"Loading model: {model_id}")
-    llm_analyzer = LLMAnalyzer(model_id=model_id, temperature=temperature)
-
-    # Compute deterministic seeds from the base seed for each generation
-    print(f"Using base seed: {base_seed}")
-    # Create sequential seeds for each explanation generation
-    generation_seeds = [base_seed + i for i in range(num_dec_exp)]
-    print(f"Generated seeds for explanations: {generation_seeds}")
-
-    # Store original parameters for reset after retries
-    original_params = {
-        "model_id": model_id,
-        "decision": methods_params_decision.copy(),
-        "explanation": methods_params_explanation.copy(),
-    }
-
-    # Process scenarios
-    for iteration, scenario_item in enumerate(tqdm(filtered_dataset, desc="Processing scenarios"), 1):
-        # Skip if already processed
-        if iteration in processed_scenarios:
-            print(f"Skipping already processed scenario {iteration}")
-            continue
-
-        # Memory and model management
-        if iteration - last_memory_check >= MEMORY_CHECK_INTERVAL:
-            memory_usage = psutil.virtual_memory().percent
-            print(f"Memory usage: {memory_usage:.1f}%")
-            last_memory_check = iteration
-
-            if memory_usage > 90:
-                print("High memory usage detected. Consider restarting the script.")
-
-        if iteration - last_model_reload >= RELOAD_MODEL_EVERY:
-            print("Reloading model to free memory...")
-            del llm_analyzer
-            torch.cuda.empty_cache()
-            llm_analyzer = LLMAnalyzer(model_id=model_id, temperature=temperature)
-            last_model_reload = iteration
-
-        # Process the scenario
-        start_time = time.time()
-        try:
-            scenario_result = process_single_scenario(
-                scenario_item=scenario_item,
-                llm_analyzer=llm_analyzer,
-                methods_params_decision=methods_params_explanation,
-                methods_params_explanation=methods_params_explanation,
-                generation_seeds=generation_seeds,
-                num_dec_exp=num_dec_exp,
-                original_params=original_params,
-                iteration=iteration,
-                output_dir=output_dir,
-                jsonl_filename=jsonl_filename,
-            )
-
-            if scenario_result:
-                # Calculate metrics
-                scenario_time = time.time() - start_time
-                metrics, success_sum = calculate_metrics(
-                    scenario_res=scenario_result,
-                    success_sum=success_sum,
-                    iteration=iteration,
-                    spearman_sums=spearman_sums,
-                    cosine_sums=cosine_sums,
-                    scenario_time=scenario_time,
-                    total_time_sum=total_time_sum,
-                )
-
-                # Update sums
-                success_sum += 1
-                for metric_type in ["best", "worst", "median"]:
-                    spearman_sums[metric_type] += metrics.get(f"spearman_{metric_type}", 0)
-                    cosine_sums[metric_type] += metrics.get(f"cosine_{metric_type}", 0)
-
-                # Save scenario result
-                save_scenario_result(scenario_result, jsonl_filename)
-
-                # Update progress
-                processed_scenarios.add(iteration)
-                progress_data = update_progress(
-                    progress_data, iteration, len(filtered_dataset), metrics, time.time() - start_time
-                )
-
-                # Save checkpoint and progress
-                save_checkpoint(checkpoint_file, processed_scenarios)
-                save_progress(progress_file, progress_data)
-
-                # Log to wandb if enabled
-                if use_wandb:
-                    wandb.log(
-                        {
-                            "iteration": iteration,
-                            "success_rate": success_sum / iteration,
-                            "spearman_best_avg": spearman_sums["best"] / success_sum,
-                            "spearman_worst_avg": spearman_sums["worst"] / success_sum,
-                            "spearman_median_avg": spearman_sums["median"] / success_sum,
-                            "cosine_best_avg": cosine_sums["best"] / success_sum,
-                            "cosine_worst_avg": cosine_sums["worst"] / success_sum,
-                            "cosine_median_avg": cosine_sums["median"] / success_sum,
-                        }
-                    )
-
-                total_time_sum += time.time() - start_time
-
-        except Exception as e:
-            print(f"Error processing scenario {iteration}: {e}")
-            continue
-
-    # Final summary
-    print(f"\nCollect data with indices completed!")
-    print(f"Successfully processed: {success_sum}/{len(filtered_dataset)} scenarios")
-    if success_sum > 0:
-        print(
-            f"Average Spearman - Best: {spearman_sums['best']/success_sum:.3f}, "
-            f"Worst: {spearman_sums['worst']/success_sum:.3f}, "
-            f"Median: {spearman_sums['median']/success_sum:.3f}"
-        )
-        print(
-            f"Average Cosine - Best: {cosine_sums['best']/success_sum:.3f}, "
-            f"Worst: {cosine_sums['worst']/success_sum:.3f}, "
-            f"Median: {cosine_sums['median']/success_sum:.3f}"
-        )
-        print(f"Average processing time per scenario: {total_time_sum/success_sum:.2f}s")
-
-    if use_wandb:
-        wandb.finish()
-
-    return output_dir
-
-
-def save_scenario_details(scenario_res, output_dir):
-    """Save detailed scenario information to a log file."""
-    # Create a log file in the output directory
-    log_file = output_dir / "scenario_details.log"
-
-    with open(log_file, "a") as f:
-        f.write("\n" + "=" * 50 + "\n")
-        f.write(f"\nScenario {scenario_res.get('scenario_id', 'unknown')}:\n")
-        f.write("-" * 50 + "\n")
-
-        # Print question
-        f.write(f"Question: {scenario_res.get('decision_prompt', 'N/A')}\n")
-
-        # Print correct answer and model's decision
-        f.write(f"\nCorrect Answer: {scenario_res.get('correct_label', 'N/A')}\n")
-        decision_output = scenario_res.get("decision_output", "")
-        if ")" in decision_output:
-            choice = decision_output.split(")", 1)[0] + ")"
-            f.write(f"Model's Decision: {choice.strip()}\n")
-        else:
-            f.write(f"Model's Decision: {decision_output}\n")
-
-        # Print explanations and their scores
-        if "explanation_attributions" in scenario_res and "decision_attributions" in scenario_res:
-            decision_attr = scenario_res["decision_attributions"]
-            explanation_attrs = scenario_res["explanation_attributions"]
-
-            # Calculate scores for all explanations
-            explanation_scores = []
-            for j, expl_attr in enumerate(explanation_attrs):
-                spearman_score = calculate_spearman_correlation(decision_attr, expl_attr)
-                cosine_score = calculate_cosine_similarity(decision_attr, expl_attr)
-
-                explanation_text = (
-                    scenario_res.get("explanation_outputs", ["N/A"])[j]
-                    if "explanation_outputs" in scenario_res
-                    else scenario_res.get("explanation", "N/A")
-                )
-
-                explanation_scores.append(
-                    {"index": j, "text": explanation_text, "spearman": spearman_score, "cosine": cosine_score}
-                )
-
-            # Sort explanations by Spearman correlation score
-            explanation_scores.sort(
-                key=lambda x: x["spearman"] if x["spearman"] is not None else float("-inf"), reverse=True
-            )
-
-            f.write("\nExplanations and Scores (sorted by Spearman correlation):\n")
-            for j, score_info in enumerate(explanation_scores):
-                f.write(f"\nExplanation {j+1}:\n")
-                f.write(f"Text: {score_info['text']}\n")
-                f.write(
-                    f"Spearman Correlation: {score_info['spearman']:.4f}\n"
-                    if score_info["spearman"] is not None
-                    else "Spearman Correlation: N/A\n"
-                )
-                f.write(
-                    f"Cosine Similarity: {score_info['cosine']:.4f}\n"
-                    if score_info["cosine"] is not None
-                    else "Cosine Similarity: N/A\n"
-                )
+    # Run collection
+    collector.run_collection(collector.filtered_dataset)
 
 
 if __name__ == "__main__":

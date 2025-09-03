@@ -17,9 +17,10 @@ export CUDA_VISIBLE_DEVICES=2
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
-# unsloth/Meta-Llama-3.1-8B-Instruct
 # unsloth/Qwen2.5-7B-Instruct
+# unsloth/Meta-Llama-3.1-8B-Instruct
 # unsloth/Llama-3.2-3B-Instruct
+
 # For LIG:
 # meta-llama/Meta-Llama-3.1-8B-Instruct
 # mistralai/Mistral-7B-Instruct-v0.3
