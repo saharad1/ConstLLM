@@ -581,25 +581,25 @@ def print_metrics(metrics: Dict[str, Any]) -> None:
         # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
         # print(f"  Std Dev: {stats['std']:.4f}")
 
-    print("\n=== Jaccard@10 Similarity Statistics ===")
-    for category in ["worst", "mean", "best"]:
-        # for category in ["mean"]:
-        print(f"\n{category.title()} values:")
-        stats = metrics["jaccard_10"][category]
-        print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
-        # print(f"  Median: {stats['median']:.4f}")
-        # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
-        # print(f"  Std Dev: {stats['std']:.4f}")
+    # print("\n=== Jaccard@10 Similarity Statistics ===")
+    # for category in ["worst", "mean", "best"]:
+    #     # for category in ["mean"]:
+    #     print(f"\n{category.title()} values:")
+    #     stats = metrics["jaccard_10"][category]
+    #     print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
+    #     # print(f"  Median: {stats['median']:.4f}")
+    #     # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+    #     # print(f"  Std Dev: {stats['std']:.4f}")
 
-    print("\n=== Jaccard@20 Similarity Statistics ===")
-    for category in ["worst", "mean", "best"]:
-        # for category in ["mean"]:
-        print(f"\n{category.title()} values:")
-        stats = metrics["jaccard_20"][category]
-        print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
-        # print(f"  Median: {stats['median']:.4f}")
-        # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
-        # print(f"  Std Dev: {stats['std']:.4f}")
+    # print("\n=== Jaccard@20 Similarity Statistics ===")
+    # for category in ["worst", "mean", "best"]:
+    #     # for category in ["mean"]:
+    #     print(f"\n{category.title()} values:")
+    #     stats = metrics["jaccard_20"][category]
+    #     print(f"  Mean ± SEM: {stats['mean']*100:.2f} ± {stats['sem']*100:.2f}")
+    # print(f"  Median: {stats['median']:.4f}")
+    # print(f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
+    # print(f"  Std Dev: {stats['std']:.4f}")
 
     # print("\n=== LMA Statistics ===")
     # for category in ["worst", "best", "mean"]:

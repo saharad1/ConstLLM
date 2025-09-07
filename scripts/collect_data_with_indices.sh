@@ -14,13 +14,14 @@ conda activate ConstLLM
 set -e
 
 # GPU ID to use
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=0
 
 # Model ids:
 # unsloth/mistral-7b-instruct-v0.3
 # unsloth/Meta-Llama-3.1-8B-Instruct
 # unsloth/Qwen2.5-7B-Instruct
 # unsloth/Llama-3.2-3B-Instruct
+
 # For LIG:
 # meta-llama/Meta-Llama-3.1-8B-Instruct
 # mistralai/Mistral-7B-Instruct-v0.3
@@ -40,9 +41,9 @@ export CUDA_VISIBLE_DEVICES=2
 # arc_challenge
 
 # Default values
-MODEL_ID="unsloth/Llama-3.2-3B-Instruct"
+MODEL_ID="models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_195416_lr3.84e-06_beta9.20/best_model"
 DATASET="ecqa"
-ATTRIBUTION_METHOD="KSHAP"
+ATTRIBUTION_METHOD="LIME"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true

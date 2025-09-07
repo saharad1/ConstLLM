@@ -12,7 +12,7 @@ export CUDA_VISIBLE_DEVICES=0
 
 # Default parameters - adjust these as needed
 # Set RUN_FOLDER_PATH here to avoid typing it every time
-RUN_FOLDER_PATH="data/eval_results/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250806_181728_lr6.86e-06_beta8.41/eval_250829_172353_test_521_LIG_no_pregen"
+RUN_FOLDER_PATH="data/eval_results/ecqa/huggingface/Meta-Llama-3.1-8B-Instruct/eval_250829_194757_test_1089_LIG_with_pregen"
 
 NUM_DEC_EXP=5
 TEMPERATURE=0.7

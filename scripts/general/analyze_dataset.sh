@@ -15,7 +15,7 @@ set -e
 # data/eval_results/arc_easy/huggingface/Llama-3.2-3B-Instruct/eval_250818_090347_test_521_LIG_with_pregen/eval_250818_090347_test_521_LIG_with_pregen_results.jsonl
 
 # Default values
-DATASET_PATH="data/eval_results/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250806_181728_lr6.86e-06_beta8.41/eval_250829_172353_test_521_LIG_no_pregen/eval_250829_172353_test_521_LIG_no_pregen_results.jsonl"
+DATASET_PATH="data/collect_data_with_indices/ecqa/models_ecqa_Meta-Llama-3.1-8B-Instruct_ecqa_250818_054203_lr8.96e-06_beta7.04_best_model/ecqa_20250907_110205_LIME_best_model/ecqa_20250907_110205_LIME_best_model_results.jsonl"
 
 # Display help message
 function show_help {
