@@ -7,7 +7,7 @@ conda activate ConstLLM
 # Set environment variables if needed
 # Only set CUDA_VISIBLE_DEVICES if it's not already set
 if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
-  export CUDA_VISIBLE_DEVICES=0
+  export CUDA_VISIBLE_DEVICES=1
 fi
 
 # Out of domain datasets:
@@ -23,8 +23,8 @@ fi
 # arc_easy,llama3.2: models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model
 
 # Default paths - adjust these as needed
-MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
-DATASET_PATH="data/collection_data/arc_easy/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_easy_20250527_100818_LIG_llama3.1/test_521.jsonl"
+MODEL_PATH="models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model"
+DATASET_PATH="data/collection_data/arc_easy/unsloth_Llama-3.2-3B-Instruct/arc_easy_20250417_124056_LIME_llama3.2/test_517.jsonl"
 OUTPUT_DIR=""
 RESUME_RUN=""
 
@@ -44,10 +44,11 @@ fi
 # Attribution Methods:
 # LIG
 # LIME
+# KSHAP
 
 
 # Attribution method and other parameters
-ATTRIBUTION_METHOD="LIG"
+ATTRIBUTION_METHOD="KSHAP"
 NUM_DEC_EXP=5
 TEMPERATURE=0.7
 SUBSET=""

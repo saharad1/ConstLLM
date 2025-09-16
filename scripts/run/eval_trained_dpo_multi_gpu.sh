@@ -7,7 +7,7 @@ conda activate ConstLLM
 # GPU Configuration - Modify these based on your setup
 # For single GPU: export CUDA_VISIBLE_DEVICES=0
 # For multiple GPUs: export CUDA_VISIBLE_DEVICES=0,1
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=2
 
 # Out of domain datasets:
 # codah,llama3.1: data/collection_data/codah/unsloth_Meta-Llama-3.1-8B-Instruct/codah_20250415_125210_LIME_llama3.1/test_278.jsonl
@@ -22,8 +22,8 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 # arc_easy,llama3.2: models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model
 
 # Default paths - adjust these as needed
-MODEL_PATH="meta-llama/Meta-Llama-3.1-8B-Instruct"
-DATASET_PATH="data/collection_data/ecqa/meta-llama_Meta-Llama-3.1-8B-Instruct/ecqa_20250521_120325_LIG_llama3.1/test_1089.jsonl"
+MODEL_PATH="models/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250510_194800_lr4.65e-06_beta5.64/checkpoint-448"
+DATASET_PATH="data/collection_data/arc_easy/unsloth_Meta-Llama-3.1-8B-Instruct/arc_easy_20250424_152104_LIME_llama3.1/test_521.jsonl"
 OUTPUT_DIR=""
 RESUME_RUN=""
 
@@ -45,14 +45,15 @@ fi
 # Attribution Methods:
 # LIG
 # LIME
+# KSHAP
 
 # Attribution method and other parameters
-ATTRIBUTION_METHOD="LIG"
+ATTRIBUTION_METHOD="KSHAP"
 NUM_DEC_EXP=5
 TEMPERATURE=0.7
 SUBSET=""
 SEED=42
-IGNORE_PRE_GENERATED=false
+IGNORE_PRE_GENERATED=true
 
 # Default is to disable wandb (set to false)
 USE_WANDB=true

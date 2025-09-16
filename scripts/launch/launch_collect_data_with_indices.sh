@@ -21,24 +21,33 @@ declare -A MODEL_LISTS
 # mistralai/Mistral-7B-Instruct-v0.3
 # meta-llama/Llama-3.2-3B-Instruct
 
-MODEL_LISTS["all_models"]="meta-llama/Meta-Llama-3.1-8B-Instruct \
+MODEL_LISTS["lig_models"]="meta-llama/Meta-Llama-3.1-8B-Instruct \
 meta-llama/Llama-3.2-3B-Instruct \
 models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250805_195416_lr3.84e-06_beta9.20/best_model \
+models/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250806_181728_lr6.86e-06_beta8.41/best_model \
 models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250818_054203_lr8.96e-06_beta7.04/best_model \
 models/ecqa/Llama-3.2-3B-Instruct/ecqa_250808_050834_lr9.56e-06_beta9.93/best_model"
+
+MODEL_LISTS["lime_models"]="unsloth/Meta-Llama-3.1-8B-Instruct \
+unsloth/Llama-3.2-3B-Instruct \
+models/arc_easy/Meta-Llama-3.1-8B-Instruct/arc_easy_250510_194800_lr4.65e-06_beta5.64/checkpoint-448 \
+models/arc_easy/Llama-3.2-3B-Instruct/arc_easy_250516_015641_lr6.32e-06_beta8.84/best_model \
+models/ecqa/Meta-Llama-3.1-8B-Instruct/ecqa_250508_224902_lr4.21e-06_beta5.13/best_model \
+models/ecqa/Llama-3.2-3B-Instruct/ecqa_250513_133025_lr9.55e-06_beta8.44/best_model"
+
 
 # Configuration - Modify these values as needed
 
 # Model configuration (choose one):
 # Option 1: Use a predefined model list
-MODEL_LIST="all_models"  # Set to: all_models, unsloth_models, lig_models, fine_tuned_models
+MODEL_LIST="lime_models"  # Set to: lig_models, lime_models
 
 # Option 2: Use a single model (uncomment and set)
 # SINGLE_MODEL="meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 # Other configuration
-DATASET="arc_easy"
-ATTRIBUTION_METHOD="LIME"
+DATASET="ecqa"
+ATTRIBUTION_METHOD="KSHAP"
 NUM_EXPLANATIONS=5
 SUBSET=""
 USE_WANDB=true
@@ -46,7 +55,7 @@ RESUME_RUN=""
 TEMPERATURE=0.7
 SEED=42
 INDICES_FILE="data/dataset_splits/datasets_test_indices.json"
-GPU_ID=1
+GPU_ID=2
 
 
 
@@ -60,10 +69,8 @@ function show_help {
     echo "  Custom list:      $0 --custom-list \"model1 model2 model3\""
     echo ""
     echo "Available model lists:"
-    echo "  all_models        - All 5 models (base + fine-tuned)"
-    echo "  unsloth_models    - All unsloth models"
     echo "  lig_models        - All LIG-compatible models"
-    echo "  fine_tuned_models - Only fine-tuned models"
+    echo "  lime_models       - All LIME-compatible models"
     echo ""
     echo "Options:"
     echo "  -m, --model MODEL_ID       Single model ID to use"
@@ -86,8 +93,8 @@ function show_help {
     echo "  $0 --model meta-llama/Meta-Llama-3.1-8B-Instruct --dataset ecqa"
     echo ""
     echo "  # Model list:"
-    echo "  $0 all_models"
-    echo "  $0 all_models --dataset ecqa --attribution LIG --wandb"
+    echo "  $0 lig_models"
+    echo "  $0 lig_models --dataset ecqa --attribution LIG --wandb"
     echo ""
     echo "  # Custom list:"
     echo "  $0 --custom-list \"model1 model2 model3\" --dataset ecqa"
