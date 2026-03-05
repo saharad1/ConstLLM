@@ -31,11 +31,12 @@ class LLMAnalyzer:
         temperature: float = 0.7,
         extra_skip_tokens: list[str] = None,
         only_structure_tokens: bool = True,
+        use_quantization: bool = True,
     ):
         if isinstance(model_id, str):
             # Load the tokenizer and model directly
             model_bundle: ModelTokenizerBundle = ModelTokenizerBundle(
-                model_id=model_id, device_map=device_map, use_quantization=True
+                model_id=model_id, device_map=device_map, use_quantization=use_quantization
             )
             self.tokenizer = model_bundle.tokenizer
             self.model = model_bundle.model

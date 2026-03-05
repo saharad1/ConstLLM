@@ -15,7 +15,7 @@ set -e
 # data/eval_results/arc_easy/huggingface/Llama-3.2-3B-Instruct/eval_250818_090347_test_521_LIG_with_pregen/eval_250818_090347_test_521_LIG_with_pregen_results.jsonl
 
 # Default values
-DATASET_PATH="data/collect_data_with_indices/ecqa/unsloth_Meta-Llama-3.1-8B-Instruct/ecqa_20250912_015919_KSHAP_llama3.1/ecqa_20250912_015919_KSHAP_llama3.1_results.jsonl"
+DATASET_PATH="data/collection_data/arc_challenge/meta-llama_Meta-Llama-3.1-8B-Instruct/arc_challenge_20250922_175126_LIG_llama3.1/arc_challenge_20250922_175126_LIG_llama3.1.jsonl"
 
 # Display help message
 function show_help {

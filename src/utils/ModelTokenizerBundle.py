@@ -1,4 +1,3 @@
-from unsloth import FastLanguageModel  # isort:skip
 from typing import Optional, cast
 
 import torch
@@ -86,6 +85,8 @@ class ModelTokenizerBundle:
                 device_map = self.device_map if self.device_map is not None else "cuda:0"
                 print(f"Using device map for Unsloth: {device_map}")
 
+                from unsloth import FastLanguageModel
+
                 # Use unsloth's specialized model loading
                 self.model, self.tokenizer = FastLanguageModel.from_pretrained(
                     model_name=self.model_id,
@@ -127,7 +128,20 @@ class ModelTokenizerBundle:
                     print(f"Model '{self.model_id}' appears to be already quantized. Skipping additional quantization.")
             model_kwargs["torch_dtype"] = torch.float16  # Use full precision (or float16 if preferred)
 
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
+            try:
+                self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
+            except RuntimeError as e:
+                if "cudaGetDeviceCount" in str(e) or "invalid device ordinal" in str(e):
+                    print(f"Direct GPU loading failed ({e}). Falling back to CPU load + GPU transfer...")
+                    cpu_kwargs = {k: v for k, v in model_kwargs.items() if k != "device_map"}
+                    cpu_kwargs["device_map"] = "cpu"
+                    self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **cpu_kwargs)
+                    if device_map and device_map != "cpu":
+                        target_device = device_map if device_map.startswith("cuda") else "cuda:0"
+                        print(f"Moving model to {target_device}...")
+                        self.model = self.model.to(target_device)
+                else:
+                    raise
 
         # Set up padding token after model initialization
         self._setup_padding_token()

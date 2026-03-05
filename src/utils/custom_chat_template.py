@@ -1,7 +1,5 @@
 from typing import Dict, List
 
-from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
-
 
 def custom_apply_chat_template(messages: List, add_generation_prompt=True, tokenize=False, tokenizer=None):
     """
@@ -33,6 +31,8 @@ def custom_apply_chat_template(messages: List, add_generation_prompt=True, token
 
 
 if __name__ == "__main__":
+    from src.utils.ModelTokenizerBundle import ModelTokenizerBundle
+
     model_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     model_bundle = ModelTokenizerBundle(model_id=model_id, use_quantization=True)
     tokenizer = model_bundle.tokenizer
