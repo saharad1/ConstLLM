@@ -1,0 +1,33 @@
+# Ignore those directories
+archive/
+outputs_present/
+wandb/
+cached_datasets/
+results/
+trained_models/
+dpo_datasets/
+__pycache__/
+unsloth_compiled_cache/
+ppo_datasets/
+meetings_files/
+data/
+models/
+others/
+datasets/
+outputs/
+/.vscode/
+.DS_Store
+
+# Local environments and large/binary artifacts
+.venv/
+.env
+show_logs/
+sft_eval_files.tar.gz
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local tooling
+.claude/
+
